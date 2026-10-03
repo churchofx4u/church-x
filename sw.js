@@ -1,4 +1,4 @@
-const CACHE = "church-x-v3";
+const CACHE = "church-x-v4";
 const FILES = ["./index.html", "./styles.css", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

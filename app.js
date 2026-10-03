@@ -209,6 +209,11 @@ function slidesFor(service) {
       (item.verses || []).forEach((verse, i) => {
         slides.push({ kind: "verse", title: item.title, body: verse, kicker: "Verse " + (i + 1), item });
       });
+    } else if (item.type === "scripture") {
+      const parts = scriptureParts(item.body);
+      parts.forEach((part, i) => {
+        slides.push({ kind: "scripture", title: item.title, body: part, kicker: parts.length > 1 ? "Part " + (i + 1) : item.title, item });
+      });
     } else {
       slides.push({ kind: item.type, title: item.title, body: item.body || "", item });
     }
@@ -281,8 +286,15 @@ function planView() {
         <label>Public-domain hymn</label>
         <select id="hymn-pick">${HYMNS.map((h) => `<option>${h.title}</option>`).join("")}</select>
         <button class="solid" id="add-hymn" style="margin-top:10px">Add hymn</button>
-        <label>Scripture</label>
-        <select id="scripture-pick">${SCRIPTURES.map((s) => `<option>${s.ref}</option>`).join("")}</select>
+        <label>Scripture reference</label>
+        <input id="scripture-ref" placeholder="Romans 8:1–2">
+        <label>Scripture text</label>
+        <textarea id="scripture-text" placeholder="Paste any passage. A blank line starts the next slide."></textarea>
+        <label>Or start from a sample</label>
+        <select id="scripture-pick">
+          <option value="">Choose a sample</option>
+          ${SCRIPTURES.map((s) => `<option value="${escapeAttr(s.ref)}">${s.ref}</option>`).join("")}
+        </select>
         <button class="ghost" id="add-scripture" style="margin-top:10px">Add scripture</button>
         <label>Words slide</label>
         <input id="word-title" placeholder="Welcome, prayer, sermon title">
@@ -544,9 +556,17 @@ function bind() {
     active().items.push({ id: uid(), type: "hymn", ...hymn, ccli: "" });
     save(); render();
   };
-  if (byId("add-scripture")) byId("add-scripture").onclick = () => {
+  if (byId("scripture-pick")) byId("scripture-pick").onchange = () => {
     const passage = SCRIPTURES.find((s) => s.ref === byId("scripture-pick").value);
-    active().items.push({ id: uid(), type: "scripture", title: passage.ref, body: passage.text });
+    if (!passage) return;
+    byId("scripture-ref").value = passage.ref;
+    byId("scripture-text").value = passage.text;
+  };
+  if (byId("add-scripture")) byId("add-scripture").onclick = () => {
+    const title = byId("scripture-ref").value.trim();
+    const body = byId("scripture-text").value.trim();
+    if (!title || !body) return;
+    active().items.push({ id: uid(), type: "scripture", title, body });
     save(); render();
   };
   if (byId("add-word")) byId("add-word").onclick = () => {
@@ -621,6 +641,27 @@ function bind() {
     state = JSON.parse(await file.text());
     save(); render();
   };
+}
+
+function scriptureParts(text) {
+  const blocks = String(text || "").split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const source = blocks.length ? blocks : [String(text || "").trim()];
+  const parts = [];
+  source.forEach((block) => {
+    if (block.length <= 420) { parts.push(block); return; }
+    const sentences = block.split(/(?<=[.!?;])\s+/);
+    let chunk = "";
+    sentences.forEach((sentence) => {
+      if ((chunk + " " + sentence).trim().length > 420 && chunk) {
+        parts.push(chunk.trim());
+        chunk = sentence;
+      } else {
+        chunk = (chunk + " " + sentence).trim();
+      }
+    });
+    if (chunk) parts.push(chunk.trim());
+  });
+  return parts.filter(Boolean);
 }
 
 function addYoutube(url) {
