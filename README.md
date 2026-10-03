@@ -1,6 +1,8 @@
-# Church X
+# Worship With Me
 
-Sunday slides, run sheet, CCLI log, and new-here card.
+Church X Sunday app. One program: slides, run sheet, license log, and new-here card.
+
+The older trial at ever-garden-light-cloud.grok.me is not this app. Use this site.
 
 Open `index.html` on the church laptop. It works offline after the first load. Services, songs, guests, and the CCLI log stay in that browser.
 

@@ -1,6 +1,6 @@
 {
-  "name": "Church X",
-  "short_name": "Church X",
+  "name": "Worship With Me",
+  "short_name": "Worship",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#14110e",

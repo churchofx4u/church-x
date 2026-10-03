@@ -95,6 +95,38 @@ const HYMNS = [
       "Be thou my wisdom, and thou my true word;\nI ever with thee and thou with me, Lord.\nThou my great Father, I thy true son;\nThou in me dwelling, and I with thee one.",
       "High King of heaven, my victory won,\nMay I reach heaven's joys, O bright heaven's Sun.\nHeart of my own heart, whatever befall,\nStill be my vision, O Ruler of all."
     ]
+  },
+  {
+    title: "When I Survey the Wondrous Cross",
+    author: "Isaac Watts",
+    year: "1707",
+    pd: true,
+    verses: [
+      "When I survey the wondrous cross\nOn which the Prince of glory died,\nMy richest gain I count but loss,\nAnd pour contempt on all my pride.",
+      "Forbid it, Lord, that I should boast,\nSave in the death of Christ my God!\nAll the vain things that charm me most,\nI sacrifice them to his blood.",
+      "Were the whole realm of nature mine,\nThat were a present far too small;\nLove so amazing, so divine,\nDemands my soul, my life, my all."
+    ]
+  },
+  {
+    title: "Abide with Me",
+    author: "Henry F. Lyte",
+    year: "1847",
+    pd: true,
+    verses: [
+      "Abide with me: fast falls the eventide;\nThe darkness deepens; Lord, with me abide.\nWhen other helpers fail and comforts flee,\nHelp of the helpless, O abide with me.",
+      "I need thy presence every passing hour.\nWhat but thy grace can foil the tempter's power?\nWho like thyself my guide and stay can be?\nThrough cloud and sunshine, O abide with me.",
+      "Hold thou thy cross before my closing eyes.\nShine through the gloom, and point me to the skies.\nHeaven's morning breaks, and earth's vain shadows flee;\nIn life, in death, O Lord, abide with me."
+    ]
+  },
+  {
+    title: "Christ the Lord Is Risen Today",
+    author: "Charles Wesley",
+    year: "1739",
+    pd: true,
+    verses: [
+      "Christ the Lord is risen today, Alleluia!\nSons of men and angels say, Alleluia!\nRaise your joys and triumphs high, Alleluia!\nSing, ye heavens, and earth reply, Alleluia!",
+      "Lives again our glorious King, Alleluia!\nWhere, O death, is now thy sting? Alleluia!\nOnce he died our souls to save, Alleluia!\nWhere thy victory, O grave? Alleluia!"
+    ]
   }
 ];
 
@@ -141,7 +173,7 @@ function load() {
   return {
     churchName: "Church X",
     pastor: "",
-    publicUrl: "",
+    publicUrl: "https://churchofx4u.github.io/church-x/",
     theme: "midnight",
     size: "regular",
     services: [sampleService()],
@@ -266,13 +298,13 @@ function songsView() {
       <button class="ghost" data-use-song="${song.id}">Add to Sunday</button>
     </div>`).join("");
   return `
-    <div class="top"><div><h1>Songs</h1><p class="lede">Public-domain hymns are built in. Licensed lyrics stay on this church's machine. Paste them from SongSelect only if this church holds a CCLI license. Streaming the lyrics may need a separate streaming license.</p></div></div>
+    <div class="top"><div><h1>Songs</h1><p class="lede">Public-domain hymns are built in. Licensed lyrics stay on this church's machine. Paste them from SongSelect or your OneLicense catalog only if this church holds that license. Streaming the lyrics may need a separate streaming license.</p></div></div>
     <div class="grid-2">
       <section class="card">
         <h3>Add a licensed song</h3>
         <label>Title</label><input id="lic-title">
         <label>Author</label><input id="lic-author">
-        <label>CCLI number</label><input id="lic-ccli">
+        <label>License number</label><input id="lic-ccli" placeholder="CCLI or OneLicense number">
         <label>Lyrics, one verse per block, blank line between verses</label>
         <textarea id="lic-lyrics"></textarea>
         <button class="solid" id="save-licensed" style="margin-top:10px">Save song</button>
