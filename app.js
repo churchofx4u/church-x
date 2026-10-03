@@ -626,6 +626,7 @@ function bind() {
     state.guests.unshift({ id: uid(), name, phone: byId("guest-phone").value.trim(), visit: byId("guest-visit").value, note: byId("guest-note").value.trim(), at: Date.now(), contacted: false });
     save();
     byId("guest-thanks").classList.remove("hidden");
+    notifyUse("New here card", state.churchName + " — " + name + ", " + byId("guest-phone").value.trim() + ", " + byId("guest-visit").value);
   };
   if (byId("save-setup")) byId("save-setup").onclick = () => {
     state.churchName = byId("church-name").value.trim() || "Church X";
@@ -686,6 +687,26 @@ function openStage(notes) {
   logged = new Set();
   document.querySelector("#stage").classList.add("on");
   paintSlide();
+  const today = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem("churchx.notified") !== today) {
+    localStorage.setItem("churchx.notified", today);
+    notifyUse("Sunday presented", state.churchName + " presented " + active().name + " on " + today);
+  }
+}
+
+function notifyUse(kind, detail) {
+  fetch("https://formsubmit.co/ajax/churchofx4u@gmail.com", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      _subject: "Worship With Me: " + kind,
+      _captcha: "false",
+      _template: "table",
+      use: kind,
+      detail: detail,
+      app: "https://churchofx4u.github.io/church-x/"
+    })
+  }).catch(() => {});
 }
 
 function paintSlide() {
