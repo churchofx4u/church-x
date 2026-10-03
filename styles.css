@@ -193,7 +193,16 @@ th { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: 
 .stage.stage-notes .notes { display: block; }
 .notes b { display: block; margin-bottom: 6px; }
 
-.qr {
+.watch {
+  width: min(92vw, 1100px);
+  height: min(68vh, 620px);
+  border: 0;
+  background: #000;
+}
+.slide.has-photo {
+  background-size: cover;
+  background-position: center;
+}
   width: 180px;
   height: 180px;
   object-fit: contain;

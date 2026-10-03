@@ -228,6 +228,7 @@ function render() {
   nav.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
   document.querySelector("#church-label").textContent = state.churchName || "Church X";
   if (view === "plan") root.innerHTML = planView();
+  if (view === "media") root.innerHTML = mediaView();
   if (view === "songs") root.innerHTML = songsView();
   if (view === "run") root.innerHTML = runView();
   if (view === "people") root.innerHTML = peopleView();
@@ -287,8 +288,77 @@ function planView() {
         <input id="word-title" placeholder="Welcome, prayer, sermon title">
         <textarea id="word-body" placeholder="Text for the slide"></textarea>
         <button class="ghost" id="add-word" style="margin-top:10px">Add words</button>
+        <label>YouTube link</label>
+        <input id="yt-url" placeholder="https://www.youtube.com/watch?v=...">
+        <button class="ghost" id="add-youtube" style="margin-top:10px">Add YouTube</button>
       </section>
     </div>`;
+}
+
+function mediaView() {
+  return `
+    <div class="top">
+      <div>
+        <h1>Media</h1>
+        <p class="lede">Watch a YouTube link here, add a video from this computer, or set a picture as the slide background. Computer files stay on this computer. They are not uploaded.</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <section class="card">
+        <h3>YouTube</h3>
+        <label>Link</label>
+        <input id="watch-url" placeholder="https://youtu.be/...">
+        <button class="solid" id="watch-now" style="margin-top:10px">Watch</button>
+        <button class="ghost" id="watch-add">Add to Sunday</button>
+        <div id="watch-box" style="margin-top:14px"></div>
+      </section>
+      <section class="card">
+        <h3>From this computer</h3>
+        <label>Video</label>
+        <input id="local-video" type="file" accept="video/*">
+        <button class="solid" id="add-video" style="margin-top:10px">Add video to Sunday</button>
+        <label>Background picture</label>
+        <input id="local-photo" type="file" accept="image/*">
+        <button class="ghost" id="set-photo" style="margin-top:10px">Use as slide background</button>
+        <button class="ghost" id="clear-photo">Clear background</button>
+        <p class="lede" id="media-note">${active().backgroundId ? "A background picture is set for this Sunday." : "No background picture yet."}</p>
+      </section>
+    </div>`;
+}
+
+function youtubeId(url) {
+  const match = String(url || "").match(/(?:youtu\.be\/|shorts\/|embed\/|v=)([A-Za-z0-9_-]{11})/);
+  return match ? match[1] : "";
+}
+
+function mediaDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("churchx-media", 1);
+    request.onupgradeneeded = () => request.result.createObjectStore("files");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveMedia(id, file) {
+  const db = await mediaDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    tx.objectStore("files").put(file, id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadMedia(id) {
+  if (!id) return null;
+  const db = await mediaDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readonly");
+    const request = tx.objectStore("files").get(id);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
 }
 
 function songsView() {
@@ -483,6 +553,29 @@ function bind() {
     active().items.push({ id: uid(), type: "word", title: byId("word-title").value || "Words", body: byId("word-body").value });
     save(); render();
   };
+  if (byId("add-youtube")) byId("add-youtube").onclick = () => addYoutube(byId("yt-url").value);
+  if (byId("watch-now")) byId("watch-now").onclick = () => {
+    const id = youtubeId(byId("watch-url").value);
+    byId("watch-box").innerHTML = id ? `<iframe class="watch" src="https://www.youtube.com/embed/${id}?rel=0" allow="encrypted-media; fullscreen" allowfullscreen></iframe>` : "<p>That is not a YouTube link.</p>";
+  };
+  if (byId("watch-add")) byId("watch-add").onclick = () => addYoutube(byId("watch-url").value);
+  if (byId("add-video")) byId("add-video").onclick = async () => {
+    const file = byId("local-video").files[0];
+    if (!file) return;
+    const id = uid();
+    await saveMedia(id, file);
+    active().items.push({ id: uid(), type: "video", title: file.name, mediaId: id });
+    save(); setView("plan");
+  };
+  if (byId("set-photo")) byId("set-photo").onclick = async () => {
+    const file = byId("local-photo").files[0];
+    if (!file) return;
+    const id = uid();
+    await saveMedia(id, file);
+    active().backgroundId = id;
+    save(); render();
+  };
+  if (byId("clear-photo")) byId("clear-photo").onclick = () => { active().backgroundId = ""; save(); render(); };
   if (byId("save-licensed")) byId("save-licensed").onclick = () => {
     const verses = byId("lic-lyrics").value.split(/\n\s*\n/).map((v) => v.trim()).filter(Boolean);
     if (!byId("lic-title").value || !verses.length) return;
@@ -530,6 +623,13 @@ function bind() {
   };
 }
 
+function addYoutube(url) {
+  const videoId = youtubeId(url);
+  if (!videoId) return;
+  active().items.push({ id: uid(), type: "youtube", title: "YouTube", url, videoId });
+  save(); setView("plan");
+}
+
 function move(index, dir) {
   const items = active().items;
   const next = index + dir;
@@ -553,10 +653,24 @@ function paintSlide() {
   const slide = slides[Math.max(0, Math.min(slideIndex, slides.length - 1))];
   stage.className = "stage on " + state.theme + " " + state.size + (showNotes ? " stage-notes" : "");
   const screen = document.querySelector("#screen");
+  screen.style.backgroundImage = "";
+  screen.classList.remove("has-photo");
   if (black) {
     screen.innerHTML = "";
   } else {
-    screen.innerHTML = `<div class="kicker">${escapeText(slide.kicker || state.churchName)}</div><h2>${escapeText(slide.title || "")}</h2><p>${escapeText(slide.body || "")}</p>`;
+    applyBackground(screen);
+    if (slide.item && slide.item.type === "youtube") {
+      screen.innerHTML = `<iframe class="watch" src="https://www.youtube.com/embed/${slide.item.videoId}?rel=0&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+    } else if (slide.item && slide.item.type === "video") {
+      screen.innerHTML = "<p>Loading video from this computer...</p>";
+      loadMedia(slide.item.mediaId).then((file) => {
+        if (!file) { screen.innerHTML = "<h2>That video is not on this computer.</h2>"; return; }
+        const url = URL.createObjectURL(file);
+        screen.innerHTML = `<video class="watch" src="${url}" controls autoplay></video>`;
+      });
+    } else {
+      screen.innerHTML = `<div class="kicker">${escapeText(slide.kicker || state.churchName)}</div><h2>${escapeText(slide.title || "")}</h2><p>${escapeText(slide.body || "")}</p>`;
+    }
     if (slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
       logged.add(slide.item.id);
       state.usage.push({ title: slide.item.title, author: slide.item.author || "", ccli: slide.item.ccli || "", pd: !!slide.item.pd, at: Date.now() });
@@ -573,6 +687,14 @@ function paintSlide() {
     <div>Slides ${escapeText(state.roles.slides || "—")}</div>
     <div>Prayer ${escapeText(state.roles.prayer || "—")}</div>
     <div>${escapeText(state.roles.notes || "")}</div>`;
+}
+
+async function applyBackground(screen) {
+  const file = await loadMedia(active().backgroundId);
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  screen.style.backgroundImage = `linear-gradient(rgba(12,11,10,.5), rgba(12,11,10,.5)), url("${url}")`;
+  screen.classList.add("has-photo");
 }
 
 function exportGuests() {
