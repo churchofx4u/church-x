@@ -523,14 +523,14 @@ function helpView() {
       </div>
     </div>
     <section class="card" style="max-width:640px">
-      <p>Email <a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a></p>
-      <p>Or message <a href="https://x.com/realchurchx" target="_blank" rel="noopener">@realchurchx</a> on X.</p>
+      <p><a href="mailto:churchofx4u@gmail.com?subject=Help%20with%20Worship%20With%20Me">Email churchofx4u@gmail.com</a></p>
+      <p><a href="https://x.com/realchurchx" target="_blank" rel="noopener">Message @realchurchx on X</a></p>
       <label>Your email</label>
       <input id="help-email" placeholder="you@church.org">
       <label>What do you need?</label>
       <textarea id="help-note" placeholder="What happened, and what you expected"></textarea>
-      <button class="solid" id="send-help" style="margin-top:12px">Send help note</button>
-      <p id="help-thanks" class="lede hidden">Sent. Church X can reply to the email you entered.</p>
+      <button class="solid" id="send-help" style="margin-top:12px">Email this note</button>
+      <p id="help-thanks" class="lede hidden">Your email app should open with this note. Send it there.</p>
     </section>`;
 }
 
@@ -620,8 +620,13 @@ function bind() {
   if (byId("send-help")) byId("send-help").onclick = () => {
     const from = byId("help-email").value.trim();
     const note = byId("help-note").value.trim();
-    if (!from || !note) return;
-    notifyUse("Help request", from + " — " + note);
+    if (!from || !note) {
+      byId("help-thanks").textContent = "Add your email and what you need, or use the email link above.";
+      byId("help-thanks").classList.remove("hidden");
+      return;
+    }
+    location.href = "mailto:churchofx4u@gmail.com?subject=" + encodeURIComponent("Help with Worship With Me") + "&body=" + encodeURIComponent("From: " + from + "\n\n" + note);
+    byId("help-thanks").textContent = "Your email app should open with this note. Send it there.";
     byId("help-thanks").classList.remove("hidden");
   };
   if (byId("save-licensed")) byId("save-licensed").onclick = () => {
