@@ -1,0 +1,9 @@
+{
+  "name": "Church X",
+  "short_name": "Church X",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#14110e",
+  "theme_color": "#14110e",
+  "description": "Sunday slides, run sheet, CCLI log, and new-here card for Church X."
+}

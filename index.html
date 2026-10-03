@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Church X</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <div class="mark">
+        <div class="chi">X</div>
+        <div>
+          <b>CHURCH X</b>
+          <span id="church-label">Sunday</span>
+        </div>
+      </div>
+      <nav>
+        <button data-view="plan">Sunday</button>
+        <button data-view="songs">Songs</button>
+        <button data-view="run">Run sheet</button>
+        <button data-view="people">New here</button>
+        <button data-view="report">CCLI log</button>
+        <button data-view="setup">Church</button>
+      </nav>
+      <div class="foot">Arrows move slides. B blacks the screen. T shows the stage notes. Esc leaves the screen.</div>
+    </aside>
+    <main class="main" id="view"></main>
+  </div>
+  <div id="stage" class="stage">
+    <div id="screen" class="slide"></div>
+    <div id="notes" class="notes"></div>
+    <div class="stage-bar">
+      <span id="pos"></span>
+      <button class="ghost" id="exit-stage">Exit</button>
+    </div>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>

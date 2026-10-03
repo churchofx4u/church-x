@@ -1,0 +1,589 @@
+const HYMNS = [
+  {
+    title: "Amazing Grace",
+    author: "John Newton",
+    year: "1779",
+    pd: true,
+    verses: [
+      "Amazing grace! how sweet the sound\nThat saved a wretch like me!\nI once was lost, but now am found,\nWas blind, but now I see.",
+      "'Twas grace that taught my heart to fear,\nAnd grace my fears relieved;\nHow precious did that grace appear\nThe hour I first believed!",
+      "Through many dangers, toils, and snares,\nI have already come;\n'Tis grace hath brought me safe thus far,\nAnd grace will lead me home.",
+      "When we've been there ten thousand years,\nBright shining as the sun,\nWe've no less days to sing God's praise\nThan when we'd first begun."
+    ]
+  },
+  {
+    title: "Holy, Holy, Holy",
+    author: "Reginald Heber",
+    year: "1826",
+    pd: true,
+    verses: [
+      "Holy, holy, holy! Lord God Almighty!\nEarly in the morning our song shall rise to thee.\nHoly, holy, holy! Merciful and mighty!\nGod in three Persons, blessed Trinity!",
+      "Holy, holy, holy! All the saints adore thee,\nCasting down their golden crowns around the glassy sea.\nCherubim and seraphim falling down before thee,\nWhich wert, and art, and evermore shalt be.",
+      "Holy, holy, holy! Lord God Almighty!\nAll thy works shall praise thy name, in earth and sky and sea.\nHoly, holy, holy! Merciful and mighty!\nGod in three Persons, blessed Trinity!"
+    ]
+  },
+  {
+    title: "It Is Well with My Soul",
+    author: "Horatio G. Spafford",
+    year: "1873",
+    pd: true,
+    verses: [
+      "When peace, like a river, attendeth my way,\nWhen sorrows like sea billows roll;\nWhatever my lot, thou hast taught me to say,\nIt is well, it is well with my soul.",
+      "My sin—oh, the bliss of this glorious thought—\nMy sin, not in part, but the whole,\nIs nailed to the cross, and I bear it no more.\nPraise the Lord, praise the Lord, O my soul!",
+      "And Lord, haste the day when my faith shall be sight,\nThe clouds be rolled back as a scroll;\nThe trump shall resound, and the Lord shall descend,\nEven so, it is well with my soul."
+    ]
+  },
+  {
+    title: "Come, Thou Fount",
+    author: "Robert Robinson",
+    year: "1758",
+    pd: true,
+    verses: [
+      "Come, thou Fount of every blessing,\nTune my heart to sing thy grace.\nStreams of mercy, never ceasing,\nCall for songs of loudest praise.",
+      "Jesus sought me when a stranger,\nWandering from the fold of God.\nHe, to rescue me from danger,\nInterposed his precious blood.",
+      "O to grace how great a debtor\nDaily I'm constrained to be!\nLet thy goodness, like a fetter,\nBind my wandering heart to thee."
+    ]
+  },
+  {
+    title: "Blessed Assurance",
+    author: "Fanny J. Crosby",
+    year: "1873",
+    pd: true,
+    verses: [
+      "Blessed assurance, Jesus is mine!\nO what a foretaste of glory divine!\nHeir of salvation, purchase of God,\nBorn of his Spirit, washed in his blood.",
+      "Perfect submission, all is at rest,\nI in my Savior am happy and blest,\nWatching and waiting, looking above,\nFilled with his goodness, lost in his love."
+    ]
+  },
+  {
+    title: "A Mighty Fortress Is Our God",
+    author: "Martin Luther, tr. Frederick H. Hedge",
+    year: "1529 / 1853",
+    pd: true,
+    verses: [
+      "A mighty fortress is our God,\nA bulwark never failing;\nOur helper he, amid the flood\nOf mortal ills prevailing.",
+      "Did we in our own strength confide,\nOur striving would be losing,\nWere not the right Man on our side,\nThe Man of God's own choosing.",
+      "Let goods and kindred go,\nThis mortal life also;\nThe body they may kill:\nGod's truth abideth still.\nHis kingdom is forever."
+    ]
+  },
+  {
+    title: "What a Friend We Have in Jesus",
+    author: "Joseph M. Scriven",
+    year: "1855",
+    pd: true,
+    verses: [
+      "What a friend we have in Jesus,\nAll our sins and griefs to bear!\nWhat a privilege to carry\nEverything to God in prayer!",
+      "Have we trials and temptations?\nIs there trouble anywhere?\nWe should never be discouraged;\nTake it to the Lord in prayer.",
+      "Are we weak and heavy laden,\nCumbered with a load of care?\nPrecious Savior, still our refuge;\nTake it to the Lord in prayer."
+    ]
+  },
+  {
+    title: "Doxology",
+    author: "Thomas Ken",
+    year: "1674",
+    pd: true,
+    verses: [
+      "Praise God, from whom all blessings flow;\nPraise him, all creatures here below;\nPraise him above, ye heavenly host;\nPraise Father, Son, and Holy Ghost. Amen."
+    ]
+  },
+  {
+    title: "Be Thou My Vision",
+    author: "Ancient Irish, tr. Mary E. Byrne / Eleanor H. Hull",
+    year: "1912",
+    pd: true,
+    verses: [
+      "Be thou my vision, O Lord of my heart;\nNaught be all else to me, save that thou art.\nThou my best thought, by day or by night,\nWaking or sleeping, thy presence my light.",
+      "Be thou my wisdom, and thou my true word;\nI ever with thee and thou with me, Lord.\nThou my great Father, I thy true son;\nThou in me dwelling, and I with thee one.",
+      "High King of heaven, my victory won,\nMay I reach heaven's joys, O bright heaven's Sun.\nHeart of my own heart, whatever befall,\nStill be my vision, O Ruler of all."
+    ]
+  }
+];
+
+const SCRIPTURES = [
+  {
+    ref: "Psalm 23:1–6",
+    text: "The Lord is my shepherd; I shall not want.\nHe maketh me to lie down in green pastures: he leadeth me beside the still waters.\nHe restoreth my soul: he leadeth me in the paths of righteousness for his name's sake.\nYea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me.\nThou preparest a table before me in the presence of mine enemies: thou anointest my head with oil; my cup runneth over.\nSurely goodness and mercy shall follow me all the days of my life: and I will dwell in the house of the Lord for ever."
+  },
+  {
+    ref: "John 3:16–17",
+    text: "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.\nFor God sent not his Son into the world to condemn the world; but that the world through him might be saved."
+  },
+  {
+    ref: "Numbers 6:24–26",
+    text: "The Lord bless thee, and keep thee:\nThe Lord make his face shine upon thee, and be gracious unto thee:\nThe Lord lift up his countenance upon thee, and give thee peace."
+  }
+];
+
+const KEY = "churchx.v1";
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+
+function sampleService() {
+  return {
+    id: uid(),
+    name: "Sunday gathering",
+    date: new Date().toISOString().slice(0, 10),
+    items: [
+      { id: uid(), type: "word", title: "Welcome", body: "Welcome to Church X.\nWe are glad you are here." },
+      { id: uid(), type: "hymn", title: "Amazing Grace", author: "John Newton", year: "1779", pd: true, ccli: "", verses: HYMNS[0].verses },
+      { id: uid(), type: "scripture", title: "Psalm 23:1–6", body: SCRIPTURES[0].text },
+      { id: uid(), type: "word", title: "Sermon", body: "Title goes here.\nText: Psalm 23" },
+      { id: uid(), type: "hymn", title: "Doxology", author: "Thomas Ken", year: "1674", pd: true, ccli: "", verses: HYMNS[7].verses },
+      { id: uid(), type: "scripture", title: "Numbers 6:24–26", body: SCRIPTURES[2].text }
+    ]
+  };
+}
+
+function load() {
+  const saved = localStorage.getItem(KEY);
+  if (saved) return JSON.parse(saved);
+  return {
+    churchName: "Church X",
+    pastor: "",
+    publicUrl: "",
+    theme: "midnight",
+    size: "regular",
+    services: [sampleService()],
+    activeId: null,
+    songs: [],
+    usage: [],
+    guests: [],
+    roles: { greeter: "", sound: "", slides: "", prayer: "", preacher: "", notes: "" }
+  };
+}
+
+let state = load();
+if (!state.activeId) state.activeId = state.services[0].id;
+let view = location.hash === "#welcome" ? "welcome" : "plan";
+let slideIndex = 0;
+let black = false;
+let showNotes = false;
+let logged = new Set();
+
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(state));
+}
+
+function active() {
+  return state.services.find((s) => s.id === state.activeId) || state.services[0];
+}
+
+function slidesFor(service) {
+  const slides = [{ kind: "title", title: state.churchName, body: service.name }];
+  service.items.forEach((item) => {
+    if (item.type === "hymn") {
+      slides.push({ kind: "title", title: item.title, body: item.author || "", item });
+      (item.verses || []).forEach((verse, i) => {
+        slides.push({ kind: "verse", title: item.title, body: verse, kicker: "Verse " + (i + 1), item });
+      });
+    } else {
+      slides.push({ kind: item.type, title: item.title, body: item.body || "", item });
+    }
+  });
+  return slides;
+}
+
+function setView(next) {
+  view = next;
+  if (next !== "welcome") history.replaceState(null, "", "#");
+  render();
+}
+
+function render() {
+  const root = document.querySelector("#view");
+  const nav = document.querySelectorAll("nav button");
+  nav.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+  document.querySelector("#church-label").textContent = state.churchName || "Church X";
+  if (view === "plan") root.innerHTML = planView();
+  if (view === "songs") root.innerHTML = songsView();
+  if (view === "run") root.innerHTML = runView();
+  if (view === "people") root.innerHTML = peopleView();
+  if (view === "report") root.innerHTML = reportView();
+  if (view === "setup") root.innerHTML = setupView();
+  if (view === "welcome") root.innerHTML = welcomeView();
+  bind();
+}
+
+function planView() {
+  const service = active();
+  const options = state.services.map((s) => `<option value="${s.id}" ${s.id === service.id ? "selected" : ""}>${s.date} · ${s.name}</option>`).join("");
+  const items = service.items.map((item, i) => `
+    <div class="item">
+      <div>
+        <strong>${item.title || "Untitled"}</strong>
+        <div><small>${item.type}${item.pd ? " · public domain" : ""}${item.ccli ? " · CCLI " + item.ccli : ""}</small></div>
+      </div>
+      <div class="row">
+        <button class="ghost" data-up="${i}" ${i === 0 ? "disabled" : ""}>Up</button>
+        <button class="ghost" data-down="${i}" ${i === service.items.length - 1 ? "disabled" : ""}>Down</button>
+        <button class="ghost" data-del="${i}">Remove</button>
+      </div>
+    </div>`).join("");
+  return `
+    <div class="top">
+      <div>
+        <h1>Sunday</h1>
+        <p class="lede">One service, saved in this browser. Present it on the projector. The stage notes stay on your laptop.</p>
+      </div>
+      <div class="row">
+        <button class="solid" id="present">Present</button>
+        <button class="ghost" id="stage">Stage view</button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <section class="card">
+        <div class="row">
+          <select id="service-pick">${options}</select>
+          <button class="ghost" id="new-service">New Sunday</button>
+        </div>
+        <label>Service name</label>
+        <input id="service-name" value="${escapeAttr(service.name)}">
+        <label>Date</label>
+        <input id="service-date" type="date" value="${service.date}">
+        <div style="margin-top:14px">${items || "<p>No items yet.</p>"}</div>
+      </section>
+      <section class="card">
+        <h3>Add to this service</h3>
+        <label>Public-domain hymn</label>
+        <select id="hymn-pick">${HYMNS.map((h) => `<option>${h.title}</option>`).join("")}</select>
+        <button class="solid" id="add-hymn" style="margin-top:10px">Add hymn</button>
+        <label>Scripture</label>
+        <select id="scripture-pick">${SCRIPTURES.map((s) => `<option>${s.ref}</option>`).join("")}</select>
+        <button class="ghost" id="add-scripture" style="margin-top:10px">Add scripture</button>
+        <label>Words slide</label>
+        <input id="word-title" placeholder="Welcome, prayer, sermon title">
+        <textarea id="word-body" placeholder="Text for the slide"></textarea>
+        <button class="ghost" id="add-word" style="margin-top:10px">Add words</button>
+      </section>
+    </div>`;
+}
+
+function songsView() {
+  const custom = state.songs.map((song) => `
+    <div class="song">
+      <div><strong>${song.title}</strong><div><small>${song.author || "Author"} · CCLI ${song.ccli || "missing"}</small></div></div>
+      <button class="ghost" data-use-song="${song.id}">Add to Sunday</button>
+    </div>`).join("");
+  return `
+    <div class="top"><div><h1>Songs</h1><p class="lede">Public-domain hymns are built in. Licensed lyrics stay on this church's machine. Paste them from SongSelect only if this church holds a CCLI license. Streaming the lyrics may need a separate streaming license.</p></div></div>
+    <div class="grid-2">
+      <section class="card">
+        <h3>Add a licensed song</h3>
+        <label>Title</label><input id="lic-title">
+        <label>Author</label><input id="lic-author">
+        <label>CCLI number</label><input id="lic-ccli">
+        <label>Lyrics, one verse per block, blank line between verses</label>
+        <textarea id="lic-lyrics"></textarea>
+        <button class="solid" id="save-licensed" style="margin-top:10px">Save song</button>
+      </section>
+      <section class="card">
+        <h3>Saved licensed songs</h3>
+        <div class="songs">${custom || "<p>None yet.</p>"}</div>
+      </section>
+    </div>`;
+}
+
+function runView() {
+  const r = state.roles;
+  const service = active();
+  const cues = service.items.map((item) => `<li>${item.title} <span class="pill">${item.type}</span></li>`).join("");
+  return `
+    <div class="top"><div><h1>Run sheet</h1><p class="lede">Who is doing what this Sunday. It shows on stage view, not on the congregation screen.</p></div><button class="ghost" onclick="window.print()">Print</button></div>
+    <div class="grid-2">
+      <section class="card">
+        ${field("Greeter", "greeter", r.greeter)}
+        ${field("Sound", "sound", r.sound)}
+        ${field("Slides", "slides", r.slides)}
+        ${field("Prayer", "prayer", r.prayer)}
+        ${field("Preacher", "preacher", r.preacher)}
+        <label>Notes</label>
+        <textarea id="role-notes">${escapeText(r.notes || "")}</textarea>
+        <button class="solid" id="save-roles" style="margin-top:10px">Save run sheet</button>
+      </section>
+      <section class="card">
+        <h3>${service.name}</h3>
+        <ol>${cues}</ol>
+      </section>
+    </div>`;
+}
+
+function field(label, key, value) {
+  return `<label>${label}</label><input data-role="${key}" value="${escapeAttr(value || "")}">`;
+}
+
+function peopleView() {
+  const rows = state.guests.map((g) => `
+    <tr>
+      <td>${escapeText(g.name)}</td>
+      <td>${escapeText(g.phone || "")}</td>
+      <td>${g.visit}</td>
+      <td>${escapeText(g.note || "")}</td>
+      <td>${new Date(g.at).toLocaleString()}</td>
+      <td><button class="ghost" data-guest="${g.id}">${g.contacted ? "Contacted" : "Mark contacted"}</button></td>
+    </tr>`).join("");
+  const url = welcomeUrl();
+  return `
+    <div class="top">
+      <div>
+        <h1>New here</h1>
+        <p class="lede">The card stays in this browser. Put the welcome page on a tablet at the door, or host this folder and point the QR at it.</p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="export-guests">Export CSV</button>
+        <button class="solid" id="open-welcome">Open card</button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <section class="card">
+        <img class="qr" alt="QR code for the new-here card" src="https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=${encodeURIComponent(url)}">
+        <p class="lede">${escapeText(url)}</p>
+        <label>Public URL for the QR</label>
+        <input id="public-url" value="${escapeAttr(state.publicUrl || "")}" placeholder="https://your-church-site/church-x/">
+        <button class="ghost" id="save-url" style="margin-top:10px">Save URL</button>
+      </section>
+      <section class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Phone</th><th>Visit</th><th>Note</th><th>When</th><th></th></tr></thead>
+          <tbody>${rows || "<tr><td colspan='6'>No cards yet.</td></tr>"}</tbody>
+        </table>
+      </section>
+    </div>`;
+}
+
+function reportView() {
+  const counts = {};
+  state.usage.forEach((u) => {
+    const key = u.title + "|" + (u.ccli || "pd");
+    counts[key] = counts[key] || { ...u, count: 0 };
+    counts[key].count += 1;
+  });
+  const rows = Object.values(counts).map((u) => `
+    <tr>
+      <td>${escapeText(u.title)}</td>
+      <td>${escapeText(u.author || "")}</td>
+      <td>${u.pd ? "Public domain" : escapeText(u.ccli || "missing")}</td>
+      <td>${u.count}</td>
+    </tr>`).join("");
+  return `
+    <div class="top"><div><h1>CCLI log</h1><p class="lede">A song is counted once each time you present the service and show it. Copy this into the church's CCLI report. Public-domain hymns do not need a number.</p></div><button class="ghost" onclick="window.print()">Print</button></div>
+    <section class="card">
+      <table>
+        <thead><tr><th>Song</th><th>Author</th><th>CCLI</th><th>Times shown</th></tr></thead>
+        <tbody>${rows || "<tr><td colspan='4'>Present a service to start the log.</td></tr>"}</tbody>
+      </table>
+    </section>`;
+}
+
+function setupView() {
+  return `
+    <div class="top"><div><h1>Church</h1><p class="lede">This build is the Sunday tool. Billing is not connected. A fair price for one church, after they have used it on a real Sunday, is $9 a month or $79 a year.</p></div></div>
+    <section class="card" style="max-width:640px">
+      <label>Church name on the slides</label>
+      <input id="church-name" value="${escapeAttr(state.churchName)}">
+      <label>Pastor</label>
+      <input id="pastor-name" value="${escapeAttr(state.pastor || "")}">
+      <label>Slide theme</label>
+      <select id="theme">
+        ${["midnight", "parchment", "harvest", "river"].map((t) => `<option ${state.theme === t ? "selected" : ""}>${t}</option>`).join("")}
+      </select>
+      <label>Type size</label>
+      <select id="size">
+        ${["small", "regular", "large"].map((t) => `<option ${state.size === t ? "selected" : ""}>${t}</option>`).join("")}
+      </select>
+      <button class="solid" id="save-setup" style="margin-top:12px">Save</button>
+      <p class="lede">King James text and the built-in hymns are public domain in the United States. Licensed lyrics are the church's responsibility.</p>
+      <button class="ghost" id="export-all">Export backup</button>
+      <label>Restore backup</label>
+      <input id="import-all" type="file" accept="application/json">
+    </section>`;
+}
+
+function welcomeView() {
+  return `
+    <div class="top"><div><h1>Welcome to ${escapeText(state.churchName)}</h1><p class="lede">Tell us you were here. This stays with the church. It is not posted.</p></div></div>
+    <section class="card" style="max-width:560px">
+      <label>Name</label><input id="guest-name">
+      <label>Phone</label><input id="guest-phone">
+      <label>Visit</label>
+      <select id="guest-visit"><option>First time</option><option>Returning</option></select>
+      <label>Prayer or note, optional</label>
+      <textarea id="guest-note"></textarea>
+      <button class="solid" id="save-guest" style="margin-top:12px">I'm here</button>
+      <p id="guest-thanks" class="lede hidden">Got it. Someone from the church can follow up.</p>
+    </section>`;
+}
+
+function welcomeUrl() {
+  if (state.publicUrl) return state.publicUrl.replace(/\/?$/, "/") + "index.html#welcome";
+  return location.href.split("#")[0] + "#welcome";
+}
+
+function bind() {
+  document.querySelectorAll("nav button").forEach((btn) => btn.onclick = () => setView(btn.dataset.view));
+  const byId = (id) => document.getElementById(id);
+  if (byId("present")) byId("present").onclick = () => openStage(false);
+  if (byId("stage")) byId("stage").onclick = () => openStage(true);
+  if (byId("service-pick")) byId("service-pick").onchange = (e) => { state.activeId = e.target.value; save(); render(); };
+  if (byId("new-service")) byId("new-service").onclick = () => {
+    const s = sampleService();
+    s.name = "Sunday gathering";
+    state.services.unshift(s);
+    state.activeId = s.id;
+    save(); render();
+  };
+  if (byId("service-name")) byId("service-name").onchange = (e) => { active().name = e.target.value; save(); };
+  if (byId("service-date")) byId("service-date").onchange = (e) => { active().date = e.target.value; save(); render(); };
+  document.querySelectorAll("[data-del]").forEach((btn) => btn.onclick = () => { active().items.splice(+btn.dataset.del, 1); save(); render(); });
+  document.querySelectorAll("[data-up]").forEach((btn) => btn.onclick = () => move(+btn.dataset.up, -1));
+  document.querySelectorAll("[data-down]").forEach((btn) => btn.onclick = () => move(+btn.dataset.down, 1));
+  if (byId("add-hymn")) byId("add-hymn").onclick = () => {
+    const hymn = HYMNS.find((h) => h.title === byId("hymn-pick").value);
+    active().items.push({ id: uid(), type: "hymn", ...hymn, ccli: "" });
+    save(); render();
+  };
+  if (byId("add-scripture")) byId("add-scripture").onclick = () => {
+    const passage = SCRIPTURES.find((s) => s.ref === byId("scripture-pick").value);
+    active().items.push({ id: uid(), type: "scripture", title: passage.ref, body: passage.text });
+    save(); render();
+  };
+  if (byId("add-word")) byId("add-word").onclick = () => {
+    active().items.push({ id: uid(), type: "word", title: byId("word-title").value || "Words", body: byId("word-body").value });
+    save(); render();
+  };
+  if (byId("save-licensed")) byId("save-licensed").onclick = () => {
+    const verses = byId("lic-lyrics").value.split(/\n\s*\n/).map((v) => v.trim()).filter(Boolean);
+    if (!byId("lic-title").value || !verses.length) return;
+    state.songs.push({ id: uid(), title: byId("lic-title").value, author: byId("lic-author").value, ccli: byId("lic-ccli").value, pd: false, verses });
+    save(); render();
+  };
+  document.querySelectorAll("[data-use-song]").forEach((btn) => btn.onclick = () => {
+    const song = state.songs.find((s) => s.id === btn.dataset.useSong);
+    active().items.push({ id: uid(), type: "hymn", ...song });
+    save(); setView("plan");
+  });
+  if (byId("save-roles")) byId("save-roles").onclick = () => {
+    document.querySelectorAll("[data-role]").forEach((input) => { state.roles[input.dataset.role] = input.value; });
+    state.roles.notes = byId("role-notes").value;
+    save();
+  };
+  if (byId("save-url")) byId("save-url").onclick = () => { state.publicUrl = byId("public-url").value.trim(); save(); render(); };
+  if (byId("open-welcome")) byId("open-welcome").onclick = () => setView("welcome");
+  if (byId("export-guests")) byId("export-guests").onclick = exportGuests;
+  document.querySelectorAll("[data-guest]").forEach((btn) => btn.onclick = () => {
+    const guest = state.guests.find((g) => g.id === btn.dataset.guest);
+    guest.contacted = !guest.contacted;
+    save(); render();
+  });
+  if (byId("save-guest")) byId("save-guest").onclick = () => {
+    const name = byId("guest-name").value.trim();
+    if (!name) return;
+    state.guests.unshift({ id: uid(), name, phone: byId("guest-phone").value.trim(), visit: byId("guest-visit").value, note: byId("guest-note").value.trim(), at: Date.now(), contacted: false });
+    save();
+    byId("guest-thanks").classList.remove("hidden");
+  };
+  if (byId("save-setup")) byId("save-setup").onclick = () => {
+    state.churchName = byId("church-name").value.trim() || "Church X";
+    state.pastor = byId("pastor-name").value.trim();
+    state.theme = byId("theme").value;
+    state.size = byId("size").value;
+    save(); render();
+  };
+  if (byId("export-all")) byId("export-all").onclick = () => download("church-x-backup.json", JSON.stringify(state, null, 2));
+  if (byId("import-all")) byId("import-all").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    state = JSON.parse(await file.text());
+    save(); render();
+  };
+}
+
+function move(index, dir) {
+  const items = active().items;
+  const next = index + dir;
+  if (next < 0 || next >= items.length) return;
+  [items[index], items[next]] = [items[next], items[index]];
+  save(); render();
+}
+
+function openStage(notes) {
+  slideIndex = 0;
+  black = false;
+  showNotes = notes;
+  logged = new Set();
+  document.querySelector("#stage").classList.add("on");
+  paintSlide();
+}
+
+function paintSlide() {
+  const stage = document.querySelector("#stage");
+  const slides = slidesFor(active());
+  const slide = slides[Math.max(0, Math.min(slideIndex, slides.length - 1))];
+  stage.className = "stage on " + state.theme + " " + state.size + (showNotes ? " stage-notes" : "");
+  const screen = document.querySelector("#screen");
+  if (black) {
+    screen.innerHTML = "";
+  } else {
+    screen.innerHTML = `<div class="kicker">${escapeText(slide.kicker || state.churchName)}</div><h2>${escapeText(slide.title || "")}</h2><p>${escapeText(slide.body || "")}</p>`;
+    if (slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
+      logged.add(slide.item.id);
+      state.usage.push({ title: slide.item.title, author: slide.item.author || "", ccli: slide.item.ccli || "", pd: !!slide.item.pd, at: Date.now() });
+      save();
+    }
+  }
+  document.querySelector("#pos").textContent = (slideIndex + 1) + " / " + slides.length;
+  document.querySelector("#notes").innerHTML = `
+    <b>Next</b>
+    <div>${escapeText(slides[slideIndex + 1] ? slides[slideIndex + 1].title : "End")}</div>
+    <b style="margin-top:8px">Team</b>
+    <div>Greeter ${escapeText(state.roles.greeter || "—")}</div>
+    <div>Sound ${escapeText(state.roles.sound || "—")}</div>
+    <div>Slides ${escapeText(state.roles.slides || "—")}</div>
+    <div>Prayer ${escapeText(state.roles.prayer || "—")}</div>
+    <div>${escapeText(state.roles.notes || "")}</div>`;
+}
+
+function exportGuests() {
+  const header = "name,phone,visit,note,when,contacted";
+  const lines = state.guests.map((g) => [g.name, g.phone, g.visit, g.note, new Date(g.at).toISOString(), g.contacted].map(csv).join(","));
+  download("church-x-guests.csv", [header, ...lines].join("\n"));
+}
+
+function csv(value) {
+  return `"${String(value || "").replaceAll('"', '""')}"`;
+}
+
+function download(name, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = name;
+  a.click();
+}
+
+function escapeText(value) {
+  return String(value || "").replace(/[&<>]/g, (ch) => ({ "&": "\u0026amp;", "<": "\u0026lt;", ">": "\u0026gt;" }[ch]));
+}
+function escapeAttr(value) {
+  return escapeText(value).replaceAll('"', "\u0026quot;");
+}
+
+document.addEventListener("keydown", (e) => {
+  const stage = document.querySelector("#stage");
+  if (!stage.classList.contains("on")) return;
+  const slides = slidesFor(active());
+  if (e.key === "ArrowRight" || e.key === " ") { slideIndex = Math.min(slides.length - 1, slideIndex + 1); black = false; }
+  if (e.key === "ArrowLeft") { slideIndex = Math.max(0, slideIndex - 1); black = false; }
+  if (e.key.toLowerCase() === "b") black = !black;
+  if (e.key.toLowerCase() === "t") showNotes = !showNotes;
+  if (e.key === "Escape") { stage.classList.remove("on"); return; }
+  paintSlide();
+});
+
+document.querySelector("#exit-stage").onclick = () => document.querySelector("#stage").classList.remove("on");
+document.querySelectorAll("nav button").forEach((btn) => btn.onclick = () => setView(btn.dataset.view));
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+
+render();
