@@ -626,7 +626,6 @@ function bind() {
     state.guests.unshift({ id: uid(), name, phone: byId("guest-phone").value.trim(), visit: byId("guest-visit").value, note: byId("guest-note").value.trim(), at: Date.now(), contacted: false });
     save();
     byId("guest-thanks").classList.remove("hidden");
-    notifyUse("New here card", state.churchName + " — " + name + ", " + byId("guest-phone").value.trim() + ", " + byId("guest-visit").value);
   };
   if (byId("save-setup")) byId("save-setup").onclick = () => {
     state.churchName = byId("church-name").value.trim() || "Church X";
