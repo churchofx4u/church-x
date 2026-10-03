@@ -239,6 +239,7 @@ function render() {
   if (view === "people") root.innerHTML = peopleView();
   if (view === "report") root.innerHTML = reportView();
   if (view === "setup") root.innerHTML = setupView();
+  if (view === "help") root.innerHTML = helpView();
   if (view === "welcome") root.innerHTML = welcomeView();
   bind();
 }
@@ -513,6 +514,26 @@ function setupView() {
     </section>`;
 }
 
+function helpView() {
+  return `
+    <div class="top">
+      <div>
+        <h1>Help</h1>
+        <p class="lede">This reaches Church X only if you send it. It is not sent when you use the app.</p>
+      </div>
+    </div>
+    <section class="card" style="max-width:640px">
+      <p>Email <a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a></p>
+      <p>Or message <a href="https://x.com/realchurchx" target="_blank" rel="noopener">@realchurchx</a> on X.</p>
+      <label>Your email</label>
+      <input id="help-email" placeholder="you@church.org">
+      <label>What do you need?</label>
+      <textarea id="help-note" placeholder="What happened, and what you expected"></textarea>
+      <button class="solid" id="send-help" style="margin-top:12px">Send help note</button>
+      <p id="help-thanks" class="lede hidden">Sent. Church X can reply to the email you entered.</p>
+    </section>`;
+}
+
 function welcomeView() {
   return `
     <div class="top"><div><h1>Welcome to ${escapeText(state.churchName)}</h1><p class="lede">Tell us you were here. This stays with the church. It is not posted.</p></div></div>
@@ -596,6 +617,13 @@ function bind() {
     save(); render();
   };
   if (byId("clear-photo")) byId("clear-photo").onclick = () => { active().backgroundId = ""; save(); render(); };
+  if (byId("send-help")) byId("send-help").onclick = () => {
+    const from = byId("help-email").value.trim();
+    const note = byId("help-note").value.trim();
+    if (!from || !note) return;
+    notifyUse("Help request", from + " — " + note);
+    byId("help-thanks").classList.remove("hidden");
+  };
   if (byId("save-licensed")) byId("save-licensed").onclick = () => {
     const verses = byId("lic-lyrics").value.split(/\n\s*\n/).map((v) => v.trim()).filter(Boolean);
     if (!byId("lic-title").value || !verses.length) return;
