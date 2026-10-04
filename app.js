@@ -146,7 +146,13 @@ const SCRIPTURES = [
 ];
 
 const KEY = "churchx.v1";
-const VERSION = "1.0";
+const VERSION = "1.1";
+const THEMES = [
+  { id: "midnight", name: "Midnight" },
+  { id: "parchment", name: "Parchment" },
+  { id: "harvest", name: "Harvest" },
+  { id: "river", name: "River" }
+];
 
 function uid() {
   return Math.random().toString(36).slice(2, 9);
@@ -531,9 +537,11 @@ function setupView() {
       <label>Pastor</label>
       <input id="pastor-name" value="${escapeAttr(state.pastor || "")}">
       <label>Slide theme</label>
-      <select id="theme">
-        ${["midnight", "parchment", "harvest", "river"].map((t) => `<option ${state.theme === t ? "selected" : ""}>${t}</option>`).join("")}
-      </select>
+      <input type="hidden" id="theme" value="${escapeAttr(state.theme || "midnight")}">
+      <div class="theme-grid">
+        ${THEMES.map((t) => `<button type="button" class="theme-swatch ${t.id} ${state.theme === t.id ? "on" : ""}" data-theme="${t.id}"><span>${t.name}</span></button>`).join("")}
+      </div>
+      <p class="lede">These backgrounds are original. A picture you set on Media covers the theme for that Sunday.</p>
       <label>Type size</label>
       <select id="size">
         ${["small", "regular", "large"].map((t) => `<option ${state.size === t ? "selected" : ""}>${t}</option>`).join("")}
@@ -604,7 +612,7 @@ function boothView() {
     </div>
     <div class="grid-2">
       <section>
-        <div class="booth-slide">
+        <div class="booth-slide ${escapeAttr(state.theme || "midnight")}">
           <div class="kicker">${escapeText(slide.kicker || state.churchName)}</div>
           <h2>${escapeText(black ? "Black" : (slide.title || ""))}</h2>
           <p>${escapeText(black ? "" : (slide.body || ""))}</p>
@@ -770,6 +778,10 @@ function bind() {
     state.size = byId("size").value;
     save(); render();
   };
+  document.querySelectorAll("[data-theme]").forEach((btn) => btn.onclick = () => {
+    byId("theme").value = btn.dataset.theme;
+    document.querySelectorAll("[data-theme]").forEach((other) => other.classList.toggle("on", other === btn));
+  });
   if (byId("export-all")) byId("export-all").onclick = () => download("church-x-backup.json", JSON.stringify(state, null, 2));
   if (byId("import-all")) byId("import-all").onchange = async (e) => {
     const file = e.target.files[0];

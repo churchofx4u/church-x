@@ -1,5 +1,14 @@
-const CACHE = "church-x-v11";
-const FILES = ["./index.html", "./styles.css", "./app.js", "./manifest.webmanifest"];
+const CACHE = "church-x-v12";
+const FILES = [
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./manifest.webmanifest",
+  "./themes/midnight.jpg",
+  "./themes/parchment.jpg",
+  "./themes/harvest.jpg",
+  "./themes/river.jpg"
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)));
