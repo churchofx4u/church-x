@@ -1,4 +1,4 @@
-const CACHE = "church-x-v8";
+const CACHE = "church-x-v10";
 const FILES = ["./index.html", "./styles.css", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -21,6 +21,10 @@ self.addEventListener("fetch", (event) => {
       const copy = response.clone();
       caches.open(CACHE).then((cache) => cache.put(event.request, copy));
       return response;
-    }).catch(() => caches.match(event.request))
+    }).catch(() => {
+      const url = new URL(event.request.url);
+      if (url.pathname.endsWith("index.html") || url.search.includes("screen=house")) return caches.match("./index.html");
+      return caches.match(event.request);
+    })
   );
 });

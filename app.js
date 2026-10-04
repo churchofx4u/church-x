@@ -157,7 +157,7 @@ function sampleService() {
     name: "Sunday gathering",
     date: new Date().toISOString().slice(0, 10),
     items: [
-      { id: uid(), type: "word", title: "Welcome", body: "Welcome to Church X.\nWe are glad you are here." },
+      { id: uid(), type: "word", title: "Welcome", body: "We are glad you are here." },
       { id: uid(), type: "hymn", title: "Amazing Grace", author: "John Newton", year: "1779", pd: true, ccli: "", verses: HYMNS[0].verses },
       { id: uid(), type: "scripture", title: "Psalm 23:1–6", body: SCRIPTURES[0].text },
       { id: uid(), type: "word", title: "Sermon", body: "Title goes here.\nText: Psalm 23" },
@@ -187,14 +187,27 @@ function load() {
 
 let state = load();
 if (!state.activeId) state.activeId = state.services[0].id;
+const isHouse = new URLSearchParams(location.search).get("screen") === "house";
+const LIVE = "churchx.live";
 let view = location.hash === "#welcome" ? "welcome" : "plan";
 let slideIndex = 0;
 let black = false;
+let titleCard = false;
 let showNotes = false;
 let logged = new Set();
+let houseWindow = null;
+let liveChannel = null;
+let fileNote = "";
+try { liveChannel = new BroadcastChannel("wwm-sunday"); } catch (err) { liveChannel = null; }
 
 function save() {
   localStorage.setItem(KEY, JSON.stringify(state));
+  setTitle();
+}
+
+function setTitle() {
+  const name = (state.churchName || "Worship With Me").trim();
+  document.title = name + " · Worship With Me";
 }
 
 function active() {
@@ -202,13 +215,14 @@ function active() {
 }
 
 function slidesFor(service) {
-  const slides = [{ kind: "title", title: state.churchName, body: service.name }];
+  const slides = [{ kind: "title", title: state.churchName, body: service.name, kicker: service.date || "Sunday" }];
   service.items.forEach((item) => {
     if (item.type === "hymn") {
       slides.push({ kind: "title", title: item.title, body: item.author || "", item });
       (item.verses || []).forEach((verse, i) => {
         slides.push({ kind: "verse", title: item.title, body: verse, kicker: "Verse " + (i + 1), item });
       });
+      if (!item.pd) slides.push({ kind: "credit", title: item.title, body: creditBody(item), kicker: "Song", item });
     } else if (item.type === "scripture") {
       const parts = scriptureParts(item.body);
       parts.forEach((part, i) => {
@@ -221,9 +235,18 @@ function slidesFor(service) {
   return slides;
 }
 
+function creditBody(item) {
+  const lines = [];
+  if (item.author) lines.push(item.author);
+  if (item.copyright) lines.push(item.copyright);
+  else if (item.year) lines.push(String(item.year));
+  if (item.ccli) lines.push("License " + item.ccli);
+  return lines.join("\n") || "Add the copyright line under Songs.";
+}
+
 function setView(next) {
   view = next;
-  if (next !== "welcome") history.replaceState(null, "", "#");
+  if (next !== "welcome") history.replaceState(null, "", location.pathname + location.search);
   render();
 }
 
@@ -232,6 +255,7 @@ function render() {
   const nav = document.querySelectorAll("nav button");
   nav.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
   document.querySelector("#church-label").textContent = state.churchName || "Church X";
+  setTitle();
   if (view === "plan") root.innerHTML = planView();
   if (view === "media") root.innerHTML = mediaView();
   if (view === "songs") root.innerHTML = songsView();
@@ -241,6 +265,7 @@ function render() {
   if (view === "setup") root.innerHTML = setupView();
   if (view === "help") root.innerHTML = helpView();
   if (view === "welcome") root.innerHTML = welcomeView();
+  if (view === "booth") root.innerHTML = boothView();
   bind();
 }
 
@@ -263,13 +288,16 @@ function planView() {
     <div class="top">
       <div>
         <h1>Sunday</h1>
-        <p class="lede">One service, saved in this browser. Present it on the projector. The stage notes stay on your laptop.</p>
+        <p class="lede">Build the order here. Present opens the lyrics on the projector and leaves this laptop on the run sheet. Export the Sunday file if you planned it on another computer.</p>
       </div>
       <div class="row">
         <button class="solid" id="present">Present</button>
-        <button class="ghost" id="stage">Stage view</button>
+        <button class="ghost" id="stage">Rehearse</button>
+        <button class="ghost" id="export-sunday">Export Sunday</button>
+        <label class="ghost file-btn">Import Sunday<input id="import-sunday" type="file" accept="application/json"></label>
       </div>
     </div>
+    <p id="file-note" class="lede">${escapeText(fileNote)}</p>
     <div class="grid-2">
       <section class="card">
         <div class="row">
@@ -377,7 +405,7 @@ async function loadMedia(id) {
 function songsView() {
   const custom = state.songs.map((song) => `
     <div class="song">
-      <div><strong>${song.title}</strong><div><small>${song.author || "Author"} · CCLI ${song.ccli || "missing"}</small></div></div>
+      <div><strong>${escapeText(song.title)}</strong><div><small>${escapeText(song.author || "Author")}${song.copyright ? " · " + escapeText(song.copyright) : ""} · CCLI ${escapeText(song.ccli || "missing")}</small></div></div>
       <button class="ghost" data-use-song="${song.id}">Add to Sunday</button>
     </div>`).join("");
   return `
@@ -388,6 +416,7 @@ function songsView() {
         <label>Title</label><input id="lic-title">
         <label>Author</label><input id="lic-author">
         <label>License number</label><input id="lic-ccli" placeholder="CCLI or OneLicense number">
+        <label>Copyright line</label><input id="lic-copy" placeholder="© 2011 Publisher name">
         <label>Lyrics, one verse per block, blank line between verses</label>
         <textarea id="lic-lyrics"></textarea>
         <button class="solid" id="save-licensed" style="margin-top:10px">Save song</button>
@@ -492,7 +521,7 @@ function reportView() {
 
 function setupView() {
   return `
-    <div class="top"><div><h1>Church</h1><p class="lede">This build is the Sunday tool. Billing is not connected. A fair price for one church, after they have used it on a real Sunday, is $9 a month or $79 a year.</p></div></div>
+    <div class="top"><div><h1>Church</h1><p class="lede">The name you save here is the name on the title slide and in the browser tab. Billing is not connected. Charge $9 a month or $79 a year only after a church that is not you has presented a real Sunday.</p></div></div>
     <section class="card" style="max-width:640px">
       <label>Church name on the slides</label>
       <input id="church-name" value="${escapeAttr(state.churchName)}">
@@ -519,10 +548,29 @@ function helpView() {
     <div class="top">
       <div>
         <h1>Help</h1>
-        <p class="lede">This reaches Church X only if you send it. It is not sent when you use the app.</p>
+        <p class="lede">Worship With Me puts the lyrics on the projector and the run sheet on the laptop. It is for one church on Sunday morning.</p>
       </div>
     </div>
-    <section class="card" style="max-width:640px">
+    <div class="grid-2">
+      <section class="card">
+        <h3>Sunday morning</h3>
+        <p>1. On Church, set the church name. That name is the title slide and the browser tab.</p>
+        <p>2. On Sunday, add the hymns, scripture, and words. Export Sunday if you built it on another computer, then Import Sunday at the building.</p>
+        <p>3. Press Present. Allow the popup. Drag that window onto the projector and make it full screen. This laptop stays on the run sheet.</p>
+        <p>4. Next, Back, the arrow keys, or the space bar move the slides. B blacks the screen. T shows the church name. Esc returns to the order.</p>
+        <p>Rehearse uses this screen only, with stage notes in the corner, when you do not have a second display.</p>
+      </section>
+      <section class="card">
+        <h3>Before anyone is charged</h3>
+        <p>Do not charge until a church that is not you has presented a real Sunday. Then the price is $9 a month or $79 a year. Billing is not connected.</p>
+        <p>The first Present sends a note to churchofx4u@gmail.com. Open the confirmation mail from FormSubmit and click it once, or later notices will not arrive.</p>
+        <p>After that Sunday, record a two-minute video of the real service. That is the page people should see. A made-up video is not a substitute.</p>
+        <p>The public address is still https://churchofx4u.github.io/church-x/ until you point your own domain at this site. Put that address under New here.</p>
+        <p>If the building wifi drops after the app has been opened once, it still opens from the copy saved on this computer. Files you imported stay on this computer too.</p>
+      </section>
+    </div>
+    <section class="card" style="max-width:640px;margin-top:18px">
+      <h3>Ask Church X</h3>
       <p><a href="mailto:churchofx4u@gmail.com?subject=Help%20with%20Worship%20With%20Me">Email churchofx4u@gmail.com</a></p>
       <p><a href="https://x.com/realchurchx" target="_blank" rel="noopener">Message @realchurchx on X</a></p>
       <label>Your email</label>
@@ -532,6 +580,50 @@ function helpView() {
       <button class="solid" id="send-help" style="margin-top:12px">Email this note</button>
       <p id="help-thanks" class="lede hidden">Your email app should open with this note. Send it there.</p>
     </section>`;
+}
+
+function boothView() {
+  const slides = slidesFor(active());
+  const index = Math.max(0, Math.min(slideIndex, Math.max(0, slides.length - 1)));
+  const slide = titleCard ? { title: state.churchName, body: active().name, kicker: "Title" } : (slides[index] || { title: "Empty", body: "" });
+  const next = slides[index + 1];
+  const blocked = !houseWindow || houseWindow.closed;
+  return `
+    <div class="top">
+      <div>
+        <h1>${escapeText(active().name)}</h1>
+        <p class="lede">${blocked ? "The projector window did not open. Allow pop-ups, then press Open projector." : "The projector is the other window. Keep this laptop here."}</p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="open-house">Open projector</button>
+        <button class="ghost" id="leave-booth">Back to Sunday</button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <section>
+        <div class="booth-slide">
+          <div class="kicker">${escapeText(slide.kicker || state.churchName)}</div>
+          <h2>${escapeText(black ? "Black" : (slide.title || ""))}</h2>
+          <p>${escapeText(black ? "" : (slide.body || ""))}</p>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="ghost" id="go-back">Back</button>
+          <button class="solid" id="go-next">Next</button>
+          <button class="ghost" id="go-black">${black ? "Show slide" : "Black"}</button>
+          <button class="ghost" id="go-title">${titleCard ? "Show slide" : "Title"}</button>
+        </div>
+        <p class="lede">${index + 1} / ${slides.length}. Next: ${escapeText(next ? next.title : "End")}</p>
+      </section>
+      <section class="card">
+        <h3>Run sheet</h3>
+        <p>Greeter ${escapeText(state.roles.greeter || "—")}</p>
+        <p>Sound ${escapeText(state.roles.sound || "—")}</p>
+        <p>Slides ${escapeText(state.roles.slides || "—")}</p>
+        <p>Prayer ${escapeText(state.roles.prayer || "—")}</p>
+        <p>Preacher ${escapeText(state.roles.preacher || "—")}</p>
+        <p>${escapeText(state.roles.notes || "")}</p>
+      </section>
+    </div>`;
 }
 
 function welcomeView() {
@@ -557,8 +649,16 @@ function welcomeUrl() {
 function bind() {
   document.querySelectorAll("nav button").forEach((btn) => btn.onclick = () => setView(btn.dataset.view));
   const byId = (id) => document.getElementById(id);
-  if (byId("present")) byId("present").onclick = () => openStage(false);
+  if (byId("present")) byId("present").onclick = () => startPresent();
   if (byId("stage")) byId("stage").onclick = () => openStage(true);
+  if (byId("export-sunday")) byId("export-sunday").onclick = exportSunday;
+  if (byId("import-sunday")) byId("import-sunday").onchange = importSunday;
+  if (byId("go-next")) byId("go-next").onclick = () => step(1);
+  if (byId("go-back")) byId("go-back").onclick = () => step(-1);
+  if (byId("go-black")) byId("go-black").onclick = () => { black = !black; titleCard = false; publishLive(); render(); };
+  if (byId("go-title")) byId("go-title").onclick = () => { titleCard = !titleCard; black = false; publishLive(); render(); };
+  if (byId("open-house")) byId("open-house").onclick = () => { publishLive(); houseWindow = window.open("./index.html?screen=house", "wwm-house"); render(); };
+  if (byId("leave-booth")) byId("leave-booth").onclick = () => setView("plan");
   if (byId("service-pick")) byId("service-pick").onchange = (e) => { state.activeId = e.target.value; save(); render(); };
   if (byId("new-service")) byId("new-service").onclick = () => {
     const s = sampleService();
@@ -632,12 +732,12 @@ function bind() {
   if (byId("save-licensed")) byId("save-licensed").onclick = () => {
     const verses = byId("lic-lyrics").value.split(/\n\s*\n/).map((v) => v.trim()).filter(Boolean);
     if (!byId("lic-title").value || !verses.length) return;
-    state.songs.push({ id: uid(), title: byId("lic-title").value, author: byId("lic-author").value, ccli: byId("lic-ccli").value, pd: false, verses });
+    state.songs.push({ id: uid(), title: byId("lic-title").value, author: byId("lic-author").value, copyright: byId("lic-copy").value.trim(), ccli: byId("lic-ccli").value, pd: false, verses });
     save(); render();
   };
   document.querySelectorAll("[data-use-song]").forEach((btn) => btn.onclick = () => {
     const song = state.songs.find((s) => s.id === btn.dataset.useSong);
-    active().items.push({ id: uid(), type: "hymn", ...song });
+    active().items.push({ ...song, id: uid(), type: "hymn" });
     save(); setView("plan");
   });
   if (byId("save-roles")) byId("save-roles").onclick = () => {
@@ -712,18 +812,99 @@ function move(index, dir) {
   save(); render();
 }
 
-function openStage(notes) {
+function startPresent() {
   slideIndex = 0;
   black = false;
-  showNotes = notes;
+  titleCard = false;
+  showNotes = false;
   logged = new Set();
-  document.querySelector("#stage").classList.add("on");
-  paintSlide();
+  publishLive();
+  houseWindow = window.open("./index.html?screen=house", "wwm-house");
+  setView("booth");
   const today = new Date().toISOString().slice(0, 10);
   if (localStorage.getItem("churchx.notified") !== today) {
     localStorage.setItem("churchx.notified", today);
     notifyUse("Sunday presented", state.churchName + " presented " + active().name + " on " + today);
   }
+}
+
+function step(dir) {
+  const slides = slidesFor(active());
+  slideIndex = Math.max(0, Math.min(slides.length - 1, slideIndex + dir));
+  black = false;
+  titleCard = false;
+  noteShown();
+  publishLive();
+  if (document.querySelector("#stage").classList.contains("on")) paintSlide();
+  if (view === "booth") render();
+}
+
+function noteShown() {
+  const slides = slidesFor(active());
+  const slide = slides[slideIndex];
+  if (!isHouse && slide && slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
+    logged.add(slide.item.id);
+    state.usage.push({ title: slide.item.title, author: slide.item.author || "", ccli: slide.item.ccli || "", pd: !!slide.item.pd, at: Date.now() });
+    save();
+  }
+}
+
+function publishLive() {
+  localStorage.setItem(LIVE, JSON.stringify({ slideIndex, black, titleCard, serviceId: state.activeId }));
+  if (liveChannel) liveChannel.postMessage({ type: "live" });
+}
+
+function applyLive() {
+  state = load();
+  setTitle();
+  let live = null;
+  try { live = JSON.parse(localStorage.getItem(LIVE) || "null"); } catch (err) { live = null; }
+  if (live) {
+    if (live.serviceId) state.activeId = live.serviceId;
+    slideIndex = live.slideIndex || 0;
+    black = !!live.black;
+    titleCard = !!live.titleCard;
+  }
+  showNotes = false;
+  paintSlide();
+}
+
+function exportSunday() {
+  const service = active();
+  const name = "worship-with-me-" + (service.date || "sunday") + ".json";
+  download(name, JSON.stringify(state, null, 2));
+  fileNote = "Saved " + name + ". Import that file on the church computer.";
+  const note = document.getElementById("file-note");
+  if (note) note.textContent = fileNote;
+}
+
+async function importSunday(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || !Array.isArray(data.services)) throw new Error("bad");
+    state = data;
+    if (!state.activeId && state.services[0]) state.activeId = state.services[0].id;
+    fileNote = "Imported " + file.name + ".";
+    save();
+    render();
+  } catch (err) {
+    fileNote = "That file is not a Worship With Me Sunday.";
+    const note = document.getElementById("file-note");
+    if (note) note.textContent = fileNote;
+  }
+}
+
+function openStage(notes) {
+  slideIndex = 0;
+  black = false;
+  titleCard = false;
+  showNotes = notes;
+  logged = new Set();
+  document.querySelector("#stage").classList.add("on");
+  noteShown();
+  paintSlide();
 }
 
 function notifyUse(kind, detail) {
@@ -744,31 +925,35 @@ function notifyUse(kind, detail) {
 function paintSlide() {
   const stage = document.querySelector("#stage");
   const slides = slidesFor(active());
-  const slide = slides[Math.max(0, Math.min(slideIndex, slides.length - 1))];
-  stage.className = "stage on " + state.theme + " " + state.size + (showNotes ? " stage-notes" : "");
+  if (!slides.length) return;
+  slideIndex = Math.max(0, Math.min(slideIndex, slides.length - 1));
+  const slide = titleCard && (isHouse || view === "booth")
+    ? { kind: "title", title: state.churchName, body: active().name, kicker: "Worship With Me" }
+    : slides[slideIndex];
+  stage.className = "stage on " + state.theme + " " + state.size + (!isHouse && showNotes ? " stage-notes" : "");
   const screen = document.querySelector("#screen");
   screen.style.backgroundImage = "";
-  screen.classList.remove("has-photo");
+  screen.classList.remove("has-photo", "is-credit");
+  if (!black && slide.kind === "credit") screen.classList.add("is-credit");
   if (black) {
     screen.innerHTML = "";
   } else {
     applyBackground(screen);
-    if (slide.item && slide.item.type === "youtube") {
+    if (slide.item && slide.item.type === "youtube" && isHouse) {
       screen.innerHTML = `<iframe class="watch" src="https://www.youtube.com/embed/${slide.item.videoId}?rel=0&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
-    } else if (slide.item && slide.item.type === "video") {
+    } else if (slide.item && slide.item.type === "youtube") {
+      screen.innerHTML = "<h2>YouTube</h2><p>Playing on the projector.</p>";
+    } else if (slide.item && slide.item.type === "video" && isHouse) {
       screen.innerHTML = "<p>Loading video from this computer...</p>";
       loadMedia(slide.item.mediaId).then((file) => {
         if (!file) { screen.innerHTML = "<h2>That video is not on this computer.</h2>"; return; }
         const url = URL.createObjectURL(file);
         screen.innerHTML = `<video class="watch" src="${url}" controls autoplay></video>`;
       });
+    } else if (slide.item && slide.item.type === "video") {
+      screen.innerHTML = "<h2>" + escapeText(slide.item.title || "Video") + "</h2><p>Playing on the projector.</p>";
     } else {
       screen.innerHTML = `<div class="kicker">${escapeText(slide.kicker || state.churchName)}</div><h2>${escapeText(slide.title || "")}</h2><p>${escapeText(slide.body || "")}</p>`;
-    }
-    if (slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
-      logged.add(slide.item.id);
-      state.usage.push({ title: slide.item.title, author: slide.item.author || "", ccli: slide.item.ccli || "", pd: !!slide.item.pd, at: Date.now() });
-      save();
     }
   }
   document.querySelector("#pos").textContent = (slideIndex + 1) + " / " + slides.length;
@@ -816,22 +1001,52 @@ function escapeAttr(value) {
 }
 
 document.addEventListener("keydown", (e) => {
+  if (isHouse) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   const stage = document.querySelector("#stage");
-  if (!stage.classList.contains("on")) return;
+  const stageOn = stage.classList.contains("on");
+  if (!stageOn && view !== "booth") return;
   const slides = slidesFor(active());
-  if (e.key === "ArrowRight" || e.key === " ") { slideIndex = Math.min(slides.length - 1, slideIndex + 1); black = false; }
-  if (e.key === "ArrowLeft") { slideIndex = Math.max(0, slideIndex - 1); black = false; }
-  if (e.key.toLowerCase() === "b") black = !black;
-  if (e.key.toLowerCase() === "t") showNotes = !showNotes;
-  if (e.key === "Escape") { stage.classList.remove("on"); return; }
-  paintSlide();
+  if (e.key === "ArrowRight" || e.key === " ") {
+    e.preventDefault();
+    slideIndex = Math.min(slides.length - 1, slideIndex + 1);
+    black = false;
+    titleCard = false;
+  } else if (e.key === "ArrowLeft") {
+    slideIndex = Math.max(0, slideIndex - 1);
+    black = false;
+    titleCard = false;
+  } else if (e.key.toLowerCase() === "b") {
+    black = !black;
+  } else if (e.key.toLowerCase() === "t") {
+    if (view === "booth") { titleCard = !titleCard; black = false; }
+    else showNotes = !showNotes;
+  } else if (e.key === "Escape") {
+    stage.classList.remove("on");
+    if (view === "booth") setView("plan");
+    return;
+  } else return;
+  noteShown();
+  if (view === "booth") publishLive();
+  if (stageOn) paintSlide();
+  if (view === "booth") render();
 });
 
 document.querySelector("#exit-stage").onclick = () => document.querySelector("#stage").classList.remove("on");
-document.querySelectorAll("nav button").forEach((btn) => btn.onclick = () => setView(btn.dataset.view));
 
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+if (isHouse) {
+  document.body.classList.add("house");
+  document.querySelector("#stage").classList.add("on");
+  window.addEventListener("storage", (event) => {
+    if (event.key === KEY || event.key === LIVE) applyLive();
+  });
+  if (liveChannel) liveChannel.onmessage = () => applyLive();
+  applyLive();
+} else {
+  document.querySelectorAll("nav button").forEach((btn) => btn.onclick = () => setView(btn.dataset.view));
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
+  render();
 }
-
-render();
