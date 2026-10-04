@@ -146,6 +146,7 @@ const SCRIPTURES = [
 ];
 
 const KEY = "churchx.v1";
+const VERSION = "1.0";
 
 function uid() {
   return Math.random().toString(36).slice(2, 9);
@@ -255,6 +256,8 @@ function render() {
   const nav = document.querySelectorAll("nav button");
   nav.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
   document.querySelector("#church-label").textContent = state.churchName || "Church X";
+  const versionEl = document.querySelector("#version");
+  if (versionEl) versionEl.textContent = "Version " + VERSION;
   setTitle();
   if (view === "plan") root.innerHTML = planView();
   if (view === "media") root.innerHTML = mediaView();
@@ -548,7 +551,7 @@ function helpView() {
     <div class="top">
       <div>
         <h1>Help</h1>
-        <p class="lede">Worship With Me puts the lyrics on the projector and the run sheet on the laptop. It is for one church on Sunday morning.</p>
+        <p class="lede">Worship With Me puts the lyrics on the projector and the run sheet on the laptop. It is for one church on Sunday morning. This copy is version ${VERSION}.</p>
       </div>
     </div>
     <div class="grid-2">
@@ -571,7 +574,7 @@ function helpView() {
     </div>
     <section class="card" style="max-width:640px;margin-top:18px">
       <h3>Ask Church X</h3>
-      <p><a href="mailto:churchofx4u@gmail.com?subject=Help%20with%20Worship%20With%20Me">Email churchofx4u@gmail.com</a></p>
+      <p><a href="mailto:churchofx4u@gmail.com?subject=${encodeURIComponent("Help with Worship With Me " + VERSION)}">Email churchofx4u@gmail.com</a></p>
       <p><a href="https://x.com/realchurchx" target="_blank" rel="noopener">Message @realchurchx on X</a></p>
       <label>Your email</label>
       <input id="help-email" placeholder="you@church.org">
@@ -725,7 +728,7 @@ function bind() {
       byId("help-thanks").classList.remove("hidden");
       return;
     }
-    location.href = "mailto:churchofx4u@gmail.com?subject=" + encodeURIComponent("Help with Worship With Me") + "&body=" + encodeURIComponent("From: " + from + "\n\n" + note);
+    location.href = "mailto:churchofx4u@gmail.com?subject=" + encodeURIComponent("Help with Worship With Me " + VERSION) + "&body=" + encodeURIComponent("From: " + from + "\nVersion: " + VERSION + "\n\n" + note);
     byId("help-thanks").textContent = "Your email app should open with this note. Send it there.";
     byId("help-thanks").classList.remove("hidden");
   };
@@ -917,6 +920,7 @@ function notifyUse(kind, detail) {
       _template: "table",
       use: kind,
       detail: detail,
+      version: VERSION,
       app: "https://churchofx4u.github.io/church-x/"
     })
   }).catch(() => {});

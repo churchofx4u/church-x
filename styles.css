@@ -66,6 +66,10 @@ nav button, .ghost, .solid, .textish {
 nav button { color: #efe6da; }
 nav button.active, nav button:hover { background: #2c261f; }
 .rail .foot { margin-top: auto; color: #b7aa9a; font-size: 12px; line-height: 1.45; }
+.version { margin-top: 10px; color: #c4a36a; letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
+@media (min-width: 901px) {
+  .rail { position: sticky; top: 0; height: 100vh; overflow: auto; }
+}
 
 .main { padding: 28px 32px 64px; max-width: 1180px; }
 .top {
