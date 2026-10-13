@@ -47,11 +47,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .chi {
   width: 36px;
   height: 36px;
-  border: 1px solid #c4a36a;
-  display: grid;
-  place-items: center;
-  font-family: var(--serif);
-  color: #c4a36a;
+  border-radius: 8px;
+  display: block;
+  flex: none;
 }
 .mark b { display: block; letter-spacing: 0.08em; font-size: 12px; }
 .mark span { display: block; color: #b7aa9a; font-size: 12px; margin-top: 2px; }
@@ -321,3 +319,4 @@ body.house .notes { display: none; }
   .app { display: block; }
   body { background: #fff; }
 }
+.rail .version a { color: #c4a36a; }
