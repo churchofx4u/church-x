@@ -28,6 +28,8 @@ GitHub Pages serves this folder from the `main` branch.
 
 Live app: https://churchofx4u.github.io/church-x/
 
+Page for other churches: https://churchofx4u.github.io/church-x/for-churches.html
+
 GitHub: https://github.com/churchofx4u/church-x
 
 Help: churchofx4u@gmail.com and https://x.com/realchurchx

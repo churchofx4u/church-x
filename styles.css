@@ -53,7 +53,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   font-family: var(--serif);
   color: #c4a36a;
 }
-.mark b { display: block; letter-spacing: 0.16em; font-size: 13px; }
+.mark b { display: block; letter-spacing: 0.08em; font-size: 12px; }
 .mark span { display: block; color: #b7aa9a; font-size: 12px; margin-top: 2px; }
 nav { display: flex; flex-direction: column; gap: 4px; }
 nav button, .ghost, .solid, .textish {

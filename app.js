@@ -146,7 +146,7 @@ const SCRIPTURES = [
 ];
 
 const KEY = "churchx.v1";
-const VERSION = "1.1";
+const VERSION = "1.2";
 const THEMES = [
   { id: "midnight", name: "Midnight" },
   { id: "parchment", name: "Parchment" },
@@ -178,7 +178,7 @@ function load() {
   const saved = localStorage.getItem(KEY);
   if (saved) return JSON.parse(saved);
   return {
-    churchName: "Church X",
+    churchName: "Your Church",
     pastor: "",
     publicUrl: "https://churchofx4u.github.io/church-x/",
     theme: "midnight",
@@ -261,7 +261,7 @@ function render() {
   const root = document.querySelector("#view");
   const nav = document.querySelectorAll("nav button");
   nav.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
-  document.querySelector("#church-label").textContent = state.churchName || "Church X";
+  document.querySelector("#church-label").textContent = state.churchName || "Your Church";
   const versionEl = document.querySelector("#version");
   if (versionEl) versionEl.textContent = "Version " + VERSION;
   setTitle();
@@ -273,6 +273,7 @@ function render() {
   if (view === "report") root.innerHTML = reportView();
   if (view === "setup") root.innerHTML = setupView();
   if (view === "help") root.innerHTML = helpView();
+  if (view === "about") root.innerHTML = aboutView();
   if (view === "welcome") root.innerHTML = welcomeView();
   if (view === "booth") root.innerHTML = boothView();
   bind();
@@ -297,7 +298,7 @@ function planView() {
     <div class="top">
       <div>
         <h1>Sunday</h1>
-        <p class="lede">Build the order here. Present opens the lyrics on the projector and leaves this laptop on the run sheet. Export the Sunday file if you planned it on another computer.</p>
+        <p class="lede">Build the order here. Present opens the lyrics on the projector and leaves this laptop on the run sheet. <a href="./for-churches.html">For another church</a></p>
       </div>
       <div class="row">
         <button class="solid" id="present">Present</button>
@@ -530,7 +531,7 @@ function reportView() {
 
 function setupView() {
   return `
-    <div class="top"><div><h1>Church</h1><p class="lede">The name you save here is the name on the title slide and in the browser tab. Billing is not connected. Charge $9 a month or $79 a year only after a church that is not you has presented a real Sunday.</p></div></div>
+    <div class="top"><div><h1>Church</h1><p class="lede">The name you save here is the name on the title slide and in the browser tab.</p></div></div>
     <section class="card" style="max-width:640px">
       <label>Church name on the slides</label>
       <input id="church-name" value="${escapeAttr(state.churchName)}">
@@ -551,6 +552,41 @@ function setupView() {
       <button class="ghost" id="export-all">Export backup</button>
       <label>Restore backup</label>
       <input id="import-all" type="file" accept="application/json">
+    </section>`;
+}
+
+function aboutView() {
+  const post = "Worship With Me puts the lyrics on the projector and the run sheet on the laptop.\n\nPublic-domain hymns are built in. Your church name is the title slide. It still opens if the wifi drops.\n\nTry it this Sunday.\nhttps://churchofx4u.github.io/church-x/for-churches.html";
+  return `
+    <div class="top">
+      <div>
+        <h1>About</h1>
+        <p class="lede">Worship With Me is Sunday slides for a church. Lyrics on the projector. The run sheet on the laptop.</p>
+      </div>
+      <div class="row">
+        <a class="solid" href="./for-churches.html" style="text-decoration:none">Page for churches</a>
+        <a class="ghost" href="https://x.com/realchurchx" target="_blank" rel="noopener" style="text-decoration:none">@realchurchx</a>
+      </div>
+    </div>
+    <div class="grid-2">
+      <section class="card">
+        <h3>What it does</h3>
+        <p>Present opens the projector window. This laptop keeps the run sheet.</p>
+        <p>Public-domain hymns are built in. A licensed song ends with the author and the license number.</p>
+        <p>Export Sunday and open that file at the building. If the wifi drops after the first open, it still opens.</p>
+      </section>
+      <section class="card">
+        <h3>Price</h3>
+        <p>Try it on a real Sunday. After a church that is not Church X has presented a real service, it is $9 a month or $79 a year.</p>
+        <p>Payment is not turned on. There is nothing to buy yet.</p>
+        <p><a href="mailto:churchofx4u@gmail.com?subject=Worship%20With%20Me">Email churchofx4u@gmail.com</a></p>
+      </section>
+    </div>
+    <section class="card" style="max-width:640px;margin-top:18px">
+      <h3>A post to share</h3>
+      <textarea id="share-post" readonly>${escapeText(post)}</textarea>
+      <button class="solid" id="copy-share" style="margin-top:12px">Copy post</button>
+      <p id="share-note" class="lede hidden">Copied. Paste it on X with the card from the church page.</p>
     </section>`;
 }
 
@@ -728,6 +764,17 @@ function bind() {
     save(); render();
   };
   if (byId("clear-photo")) byId("clear-photo").onclick = () => { active().backgroundId = ""; save(); render(); };
+  if (byId("copy-share")) byId("copy-share").onclick = async () => {
+    const text = byId("share-post").value;
+    const note = byId("share-note");
+    try {
+      await navigator.clipboard.writeText(text);
+      note.textContent = "Copied. Paste it on X with the card from the church page.";
+    } catch (err) {
+      note.textContent = "Select the post and copy it.";
+    }
+    note.classList.remove("hidden");
+  };
   if (byId("send-help")) byId("send-help").onclick = () => {
     const from = byId("help-email").value.trim();
     const note = byId("help-note").value.trim();
@@ -772,7 +819,7 @@ function bind() {
     byId("guest-thanks").classList.remove("hidden");
   };
   if (byId("save-setup")) byId("save-setup").onclick = () => {
-    state.churchName = byId("church-name").value.trim() || "Church X";
+    state.churchName = byId("church-name").value.trim() || "Your Church";
     state.pastor = byId("pastor-name").value.trim();
     state.theme = byId("theme").value;
     state.size = byId("size").value;

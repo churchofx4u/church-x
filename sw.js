@@ -1,9 +1,11 @@
-const CACHE = "church-x-v12";
+const CACHE = "church-x-v13";
 const FILES = [
   "./index.html",
+  "./for-churches.html",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
+  "./share.jpg",
   "./themes/midnight.jpg",
   "./themes/parchment.jpg",
   "./themes/harvest.jpg",

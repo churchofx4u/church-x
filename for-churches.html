@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Worship With Me — Sunday slides for your church</title>
+  <meta name="description" content="Lyrics on the projector. The run sheet on the laptop. Public-domain hymns are built in. Try it this Sunday.">
+  <meta property="og:title" content="Worship With Me">
+  <meta property="og:description" content="Lyrics on the projector. The run sheet on the laptop.">
+  <meta property="og:image" content="https://churchofx4u.github.io/church-x/share.jpg">
+  <meta property="og:url" content="https://churchofx4u.github.io/church-x/for-churches.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    .pitch { max-width: 760px; margin: 0 auto; padding: 48px 22px 72px; }
+    .pitch .mark { margin-bottom: 22px; }
+    .pitch h1 { font-size: clamp(40px, 7vw, 64px); }
+    .price-line { font-family: var(--serif); font-size: 28px; margin: 8px 0 0; }
+    .pitch .card { margin-top: 18px; }
+    .pitch li { margin: 8px 0; }
+    .post {
+      white-space: pre-wrap;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      font-family: var(--sans);
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+  <main class="pitch">
+    <div class="mark">
+      <div class="chi">X</div>
+      <div>
+        <b>WORSHIP WITH ME</b>
+        <span>Sunday slides for your church</span>
+      </div>
+    </div>
+    <p class="kicker" style="letter-spacing:.16em;text-transform:uppercase;color:#8a3d2f;font-size:12px;">For the church laptop</p>
+    <h1>Lyrics on the projector. The run sheet on the laptop.</h1>
+    <p class="lede">Worship With Me is a Sunday program for one church. The songs go on the screen. The order, the team, and the notes stay with the person running the service.</p>
+    <div class="row" style="margin-top:18px">
+      <a class="solid" href="./index.html" style="text-decoration:none">Open the app</a>
+      <a class="ghost" href="https://x.com/realchurchx" style="text-decoration:none">Message @realchurchx</a>
+    </div>
+    <section class="card">
+      <h3>What a church gets</h3>
+      <ul>
+        <li>Present opens a projector window. This laptop keeps the run sheet.</li>
+        <li>Public-domain hymns are built in. Licensed lyrics stay on the church computer.</li>
+        <li>The church name is the title slide. A licensed song ends with the author and license number.</li>
+        <li>Export Sunday, take the file to the building, and import it there.</li>
+        <li>If the wifi drops after the first open, it still opens.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h3>Try it this Sunday</h3>
+      <p>Use it on a real Sunday before anyone is asked to pay. After a church that is not Church X has presented a real service, the price is $9 a month or $79 a year.</p>
+      <p class="price-line">$9 a month · $79 a year</p>
+      <p class="lede">Payment is not turned on yet. There is nothing to buy on this page.</p>
+    </section>
+    <section class="card">
+      <h3>A post you can share</h3>
+      <div class="post" id="post">Worship With Me puts the lyrics on the projector and the run sheet on the laptop.
+
+Public-domain hymns are built in. Your church name is the title slide. It still opens if the wifi drops.
+
+Try it this Sunday.
+https://churchofx4u.github.io/church-x/for-churches.html</div>
+      <button class="solid" id="copy-post" style="margin-top:12px" type="button">Copy post</button>
+      <p class="lede" id="copied" hidden>Copied. Paste it on X.</p>
+    </section>
+    <p class="lede" style="margin-top:22px">Help: <a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a> · <a href="https://x.com/realchurchx">@realchurchx</a></p>
+  </main>
+  <script>
+    document.querySelector("#copy-post").onclick = async () => {
+      const text = document.querySelector("#post").textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        document.querySelector("#copied").hidden = false;
+      } catch (err) {
+        document.querySelector("#copied").textContent = "Select the post and copy it.";
+        document.querySelector("#copied").hidden = false;
+      }
+    };
+  </script>
+</body>
+</html>
