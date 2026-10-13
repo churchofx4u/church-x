@@ -547,6 +547,8 @@ function setupView() {
       <select id="size">
         ${["small", "regular", "large"].map((t) => `<option ${state.size === t ? "selected" : ""}>${t}</option>`).join("")}
       </select>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="usage-consent" style="width:auto" ${state.usageConsent === true ? "checked" : ""}> Send a usage note to Worship With Me when we present (church name, service name, date, version)</label>
+      <p class="lede" style="font-size:13px"><a href="./privacy.html" target="_blank" rel="noopener">Privacy Policy</a> · <a href="./terms.html" target="_blank" rel="noopener">Terms of Use</a></p>
       <button class="solid" id="save-setup" style="margin-top:12px">Save</button>
       <p class="lede">King James text and the built-in hymns are public domain in the United States. Licensed lyrics are the church's responsibility.</p>
       <button class="ghost" id="export-all">Export backup</button>
@@ -685,6 +687,7 @@ function welcomeView() {
       <textarea id="guest-note"></textarea>
       <button class="solid" id="save-guest" style="margin-top:12px">I'm here</button>
       <p id="guest-thanks" class="lede hidden">Got it. Someone from the church can follow up.</p>
+      <p class="lede" style="font-size:13px;margin-top:12px">Your details stay with ${escapeText(state.churchName)} on this device and are only used to follow up with you. They are not posted or shared. <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></p>
     </section>`;
 }
 
@@ -823,6 +826,7 @@ function bind() {
     state.pastor = byId("pastor-name").value.trim();
     state.theme = byId("theme").value;
     state.size = byId("size").value;
+    if (byId("usage-consent")) state.usageConsent = byId("usage-consent").checked;
     save(); render();
   };
   document.querySelectorAll("[data-theme]").forEach((btn) => btn.onclick = () => {
@@ -884,7 +888,11 @@ function startPresent() {
   houseWindow = window.open("./index.html?screen=house", "wwm-house");
   setView("booth");
   const today = new Date().toISOString().slice(0, 10);
-  if (localStorage.getItem("churchx.notified") !== today) {
+  if (state.usageConsent === undefined) {
+    state.usageConsent = window.confirm("Help us know Worship With Me is working.\n\nMay we get a short note when your church presents? It sends only your church name, the service name, the date, and the app version to churchofx4u@gmail.com, at most once a day. No songs, lyrics, or visitor cards.\n\nOK = Yes, send the note. Cancel = No thanks.\nYou can change this anytime on the Church screen.");
+    save();
+  }
+  if (state.usageConsent === true && localStorage.getItem("churchx.notified") !== today) {
     localStorage.setItem("churchx.notified", today);
     notifyUse("Sunday presented", state.churchName + " presented " + active().name + " on " + today);
   }
