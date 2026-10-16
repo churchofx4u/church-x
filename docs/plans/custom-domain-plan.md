@@ -1,6 +1,8 @@
 # Custom domain + old trial site — plan
 
-Status: draft. Nothing has been changed in DNS, GitHub settings or the old site.
+**Decision (2026-10-16): no custom domain for now; stay on https://churchofx4u.github.io/church-x/.** The plan below is kept for later.
+
+Status: parked. Nothing has been changed in DNS, GitHub settings or the old site.
 
 ## Today
 - App: https://churchofx4u.github.io/church-x/ (GitHub Pages from `main`, no custom domain set; checked via `gh api repos/churchofx4u/church-x/pages`).
