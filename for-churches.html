@@ -77,8 +77,11 @@ https://churchofx4u.github.io/church-x/for-churches.html</div>
       <p class="lede" id="copied" hidden>Copied. Paste it on X.</p>
     </section>
     <p class="lede" style="margin-top:22px">Help: <a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a> · <a href="https://x.com/realchurchx">@realchurchx</a> · <a href="./privacy.html">Privacy</a> · <a href="./terms.html">Terms</a></p>
+    <footer class="support-foot"><a id="support-link" href="mailto:churchofx4u@gmail.com">Support Worship With Me</a></footer>
   </main>
+  <script src="./config.js"></script>
   <script>
+    document.querySelector("#support-link").href = window.wwmSupportHref();
     document.querySelector("#copy-post").onclick = async () => {
       const text = document.querySelector("#post").textContent;
       try {
