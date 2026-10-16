@@ -246,7 +246,48 @@ try { liveChannel = new BroadcastChannel("wwm-sunday"); } catch (err) { liveChan
 
 function save() {
   localStorage.setItem(KEY, JSON.stringify(state));
+  localStorage.setItem(EDITED_AT, String(Date.now()));
   setTitle();
+}
+
+// "Back up your Sunday" reminder: show when there are edits since the last
+// export and it has been a week (or never). Dismiss snoozes it for 3 days.
+const EDITED_AT = "churchx.editedAt";
+const BACKED_UP_AT = "churchx.backedUpAt";
+const BACKUP_SNOOZE = "churchx.backupSnooze";
+const DAY = 86400000;
+
+function markBackedUp() {
+  localStorage.setItem(BACKED_UP_AT, String(Date.now()));
+  const el = document.getElementById("backup-reminder");
+  if (el) el.remove();
+}
+
+function needsBackup() {
+  const edited = Number(localStorage.getItem(EDITED_AT) || 0);
+  const backed = Number(localStorage.getItem(BACKED_UP_AT) || 0);
+  const snooze = Number(localStorage.getItem(BACKUP_SNOOZE) || 0);
+  const now = Date.now();
+  if (!edited || edited <= backed || now < snooze) return false;
+  if (!localStorage.getItem(KEY)) return false;
+  return !backed || now - backed > 7 * DAY;
+}
+
+function backupReminder() {
+  if (!["plan", "songs", "media", "run", "setup"].includes(view) || !needsBackup()) return "";
+  const backed = Number(localStorage.getItem(BACKED_UP_AT) || 0);
+  const when = backed ? "Your last backup was " + Math.floor((Date.now() - backed) / DAY) + " days ago." : "You haven't saved a backup yet.";
+  return `
+    <aside class="backup-reminder" id="backup-reminder" role="status">
+      <div>
+        <strong>Back up your Sunday</strong>
+        <p>${when} Everything lives in this browser only. Export a copy so a cleared browser or a new computer doesn't lose your work.</p>
+      </div>
+      <div class="row">
+        <button class="solid" id="backup-now">Export Sunday</button>
+        <button class="ghost" id="backup-later" aria-label="Dismiss backup reminder">Remind me later</button>
+      </div>
+    </aside>`;
 }
 
 function setTitle() {
@@ -313,6 +354,7 @@ function render() {
   if (view === "about") root.innerHTML = aboutView();
   if (view === "welcome") root.innerHTML = welcomeView();
   if (view === "booth") root.innerHTML = boothView();
+  root.insertAdjacentHTML("afterbegin", backupReminder());
   bind();
 }
 
@@ -741,6 +783,12 @@ function bind() {
   if (byId("present")) byId("present").onclick = () => startPresent();
   if (byId("stage")) byId("stage").onclick = () => openStage(true);
   if (byId("export-sunday")) byId("export-sunday").onclick = exportSunday;
+  if (byId("backup-now")) byId("backup-now").onclick = exportSunday;
+  if (byId("backup-later")) byId("backup-later").onclick = () => {
+    localStorage.setItem(BACKUP_SNOOZE, String(Date.now() + 3 * DAY));
+    const el = byId("backup-reminder");
+    if (el) el.remove();
+  };
   if (byId("import-sunday")) byId("import-sunday").onchange = importSunday;
   if (byId("go-next")) byId("go-next").onclick = () => step(1);
   if (byId("go-back")) byId("go-back").onclick = () => step(-1);
@@ -872,7 +920,7 @@ function bind() {
     byId("theme").value = btn.dataset.theme;
     document.querySelectorAll("[data-theme]").forEach((other) => other.classList.toggle("on", other === btn));
   });
-  if (byId("export-all")) byId("export-all").onclick = () => download("church-x-backup.json", JSON.stringify(state, null, 2));
+  if (byId("export-all")) byId("export-all").onclick = () => { download("church-x-backup.json", JSON.stringify(state, null, 2)); markBackedUp(); };
   if (byId("import-all")) byId("import-all").onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -995,6 +1043,7 @@ function exportSunday() {
   const service = active();
   const name = "worship-with-me-" + (service.date || "sunday") + ".json";
   download(name, JSON.stringify(state, null, 2));
+  markBackedUp();
   fileNote = "Saved " + name + ". Import that file on the church computer.";
   const note = document.getElementById("file-note");
   if (note) note.textContent = fileNote;
