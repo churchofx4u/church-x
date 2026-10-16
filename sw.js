@@ -1,8 +1,16 @@
-const CACHE = "church-x-v18";
+const CACHE = "church-x-v19";
 const FILES = [
   "./index.html",
   "./for-churches.html",
   "./landing.js",
+  "./shots/run-sheet.webp",
+  "./shots/run-sheet.png",
+  "./shots/lyrics.webp",
+  "./shots/lyrics.png",
+  "./shots/hymn-picker.webp",
+  "./shots/hymn-picker.png",
+  "./shots/title-slide.webp",
+  "./shots/title-slide.png",
   "./privacy.html",
   "./terms.html",
   "./styles.css",
