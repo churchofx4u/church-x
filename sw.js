@@ -16,6 +16,7 @@ const FILES = [
   "./styles.css",
   "./app.js",
   "./onboarding.js",
+  "./vendor/qrcode.js",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-maskable.svg",
