@@ -1,4 +1,4 @@
-const CACHE = "church-x-v16";
+const CACHE = "church-x-v17";
 const FILES = [
   "./index.html",
   "./for-churches.html",
@@ -6,6 +6,7 @@ const FILES = [
   "./terms.html",
   "./styles.css",
   "./app.js",
+  "./onboarding.js",
   "./manifest.webmanifest",
   "./icon.svg",
   "./icon-maskable.svg",

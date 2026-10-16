@@ -174,6 +174,43 @@ function sampleService() {
   };
 }
 
+function sampleSunday() {
+  const hymn = (title) => {
+    const h = HYMNS.find((x) => x.title === title);
+    return { id: uid(), type: "hymn", title: h.title, author: h.author, year: h.year, pd: true, ccli: "", verses: h.verses };
+  };
+  const word = (title, body) => ({ id: uid(), type: "word", title, body });
+  const verse = (i) => ({ id: uid(), type: "scripture", title: SCRIPTURES[i].ref, body: SCRIPTURES[i].text });
+  return {
+    id: uid(),
+    name: "Sample Sunday",
+    date: new Date().toISOString().slice(0, 10),
+    items: [
+      word("Welcome", "Good morning, and welcome.\nWe are glad you are here."),
+      word("Call to worship", "This is the day which the Lord hath made;\nwe will rejoice and be glad in it.\nPsalm 118:24"),
+      hymn("Holy, Holy, Holy"),
+      hymn("Come, Thou Fount"),
+      word("Prayer", "Let us pray."),
+      verse(0),
+      word("Sermon", "The Lord Is My Shepherd\nPsalm 23"),
+      hymn("It Is Well with My Soul"),
+      word("Offering", "We give with glad and generous hearts.\nGiving cards are at the back, or give online."),
+      hymn("Doxology"),
+      word("Announcements", "Coffee and fellowship after the service.\nNew here? Stop by the welcome table."),
+      verse(2),
+      word("Go in peace", "Thank you for worshiping with us.")
+    ],
+    roles: { greeter: "Greeter at the front door", sound: "Sound desk", slides: "Slides on this laptop", prayer: "Opening prayer", preacher: "Pastor", notes: "Doors open 30 minutes before. Black the screen during prayer." }
+  };
+}
+
+function blankService() {
+  return { id: uid(), name: "Sunday gathering", date: new Date().toISOString().slice(0, 10), items: [] };
+}
+
+const FIRST_RUN = "churchx.firstRun";
+const isFirstRun = !localStorage.getItem(KEY) && !localStorage.getItem(FIRST_RUN);
+
 function load() {
   const saved = localStorage.getItem(KEY);
   if (saved) return JSON.parse(saved);
@@ -608,6 +645,7 @@ function helpView() {
         <p>3. Press Present. Allow the popup. Drag that window onto the projector and make it full screen. This laptop stays on the run sheet.</p>
         <p>4. Next, Back, the arrow keys, or the space bar move the slides. B blacks the screen. T shows the church name. Esc returns to the order.</p>
         <p>Rehearse uses this screen only, with stage notes in the corner, when you do not have a second display.</p>
+        <button class="ghost" id="open-wizard">Run the setup guide again</button>
       </section>
       <section class="card">
         <h3>Before anyone is charged</h3>
@@ -699,6 +737,7 @@ function welcomeUrl() {
 function bind() {
   document.querySelectorAll("nav button").forEach((btn) => btn.onclick = () => setView(btn.dataset.view));
   const byId = (id) => document.getElementById(id);
+  if (byId("open-wizard")) byId("open-wizard").onclick = () => openWizard(false);
   if (byId("present")) byId("present").onclick = () => startPresent();
   if (byId("stage")) byId("stage").onclick = () => openStage(true);
   if (byId("export-sunday")) byId("export-sunday").onclick = exportSunday;
@@ -889,9 +928,22 @@ function startPresent() {
   setView("booth");
   const today = new Date().toISOString().slice(0, 10);
   if (state.usageConsent === undefined) {
-    state.usageConsent = window.confirm("Help us know Worship With Me is working.\n\nMay we get a short note when your church presents? It sends only your church name, the service name, the date, and the app version to churchofx4u@gmail.com, at most once a day. No songs, lyrics, or visitor cards.\n\nOK = Yes, send the note. Cancel = No thanks.\nYou can change this anytime on the Church screen.");
-    save();
+    askDialog({
+      title: "Help us know Worship With Me is working",
+      body: ["May we get a short note when your church presents? It sends only your church name, the service name, the date, and the app version to churchofx4u@gmail.com, at most once a day. No songs, lyrics, or visitor cards.", "You can change this anytime on the Church screen."],
+      yes: "Yes, send the note",
+      no: "No thanks"
+    }, (answer) => {
+      state.usageConsent = answer;
+      save();
+      sendUsageNote(today);
+    });
+    return;
   }
+  sendUsageNote(today);
+}
+
+function sendUsageNote(today) {
   if (state.usageConsent === true && localStorage.getItem("churchx.notified") !== today) {
     localStorage.setItem("churchx.notified", today);
     notifyUse("Sunday presented", state.churchName + " presented " + active().name + " on " + today);
@@ -956,6 +1008,7 @@ async function importSunday(event) {
     if (!data || !Array.isArray(data.services)) throw new Error("bad");
     state = data;
     if (!state.activeId && state.services[0]) state.activeId = state.services[0].id;
+    localStorage.setItem(FIRST_RUN, "import");
     fileNote = "Imported " + file.name + ".";
     save();
     render();
