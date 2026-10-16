@@ -215,7 +215,7 @@ function load() {
   const saved = localStorage.getItem(KEY);
   if (saved) return JSON.parse(saved);
   return {
-    churchName: "Your Church",
+    churchName: "",
     pastor: "",
     publicUrl: "https://churchofx4u.github.io/church-x/",
     theme: "midnight",
@@ -230,6 +230,14 @@ function load() {
 }
 
 let state = load();
+// Older saves stored the placeholder itself; treat it as "not set yet".
+if (!state.churchName || state.churchName.trim() === "Your Church") state.churchName = "";
+
+// The one place the church name is read. Falls back to a placeholder
+// until the church sets it (first-run guide or the Church screen).
+function churchName() {
+  return (state.churchName || "").trim() || "Your Church";
+}
 if (!state.activeId) state.activeId = state.services[0].id;
 const isHouse = new URLSearchParams(location.search).get("screen") === "house";
 const LIVE = "churchx.live";
@@ -246,11 +254,52 @@ try { liveChannel = new BroadcastChannel("wwm-sunday"); } catch (err) { liveChan
 
 function save() {
   localStorage.setItem(KEY, JSON.stringify(state));
+  localStorage.setItem(EDITED_AT, String(Date.now()));
   setTitle();
 }
 
+// "Back up your Sunday" reminder: show when there are edits since the last
+// export and it has been a week (or never). Dismiss snoozes it for 3 days.
+const EDITED_AT = "churchx.editedAt";
+const BACKED_UP_AT = "churchx.backedUpAt";
+const BACKUP_SNOOZE = "churchx.backupSnooze";
+const DAY = 86400000;
+
+function markBackedUp() {
+  localStorage.setItem(BACKED_UP_AT, String(Date.now()));
+  const el = document.getElementById("backup-reminder");
+  if (el) el.remove();
+}
+
+function needsBackup() {
+  const edited = Number(localStorage.getItem(EDITED_AT) || 0);
+  const backed = Number(localStorage.getItem(BACKED_UP_AT) || 0);
+  const snooze = Number(localStorage.getItem(BACKUP_SNOOZE) || 0);
+  const now = Date.now();
+  if (!edited || edited <= backed || now < snooze) return false;
+  if (!localStorage.getItem(KEY)) return false;
+  return !backed || now - backed > 7 * DAY;
+}
+
+function backupReminder() {
+  if (!["plan", "songs", "media", "run", "setup"].includes(view) || !needsBackup()) return "";
+  const backed = Number(localStorage.getItem(BACKED_UP_AT) || 0);
+  const when = backed ? "Your last backup was " + Math.floor((Date.now() - backed) / DAY) + " days ago." : "You haven't saved a backup yet.";
+  return `
+    <aside class="backup-reminder" id="backup-reminder" role="status">
+      <div>
+        <strong>Back up your Sunday</strong>
+        <p>${when} Everything lives in this browser only. Export a copy so a cleared browser or a new computer doesn't lose your work.</p>
+      </div>
+      <div class="row">
+        <button class="solid" id="backup-now">Export Sunday</button>
+        <button class="ghost" id="backup-later" aria-label="Dismiss backup reminder">Remind me later</button>
+      </div>
+    </aside>`;
+}
+
 function setTitle() {
-  const name = (state.churchName || "Worship With Me").trim();
+  const name = (state.churchName || "").trim() || "Worship With Me";
   document.title = name + " · Worship With Me";
 }
 
@@ -259,7 +308,7 @@ function active() {
 }
 
 function slidesFor(service) {
-  const slides = [{ kind: "title", title: state.churchName, body: service.name, kicker: service.date || "Sunday" }];
+  const slides = [{ kind: "title", title: churchName(), body: service.name, kicker: service.date || "Sunday" }];
   service.items.forEach((item) => {
     if (item.type === "hymn") {
       slides.push({ kind: "title", title: item.title, body: item.author || "", item });
@@ -298,7 +347,12 @@ function render() {
   const root = document.querySelector("#view");
   const nav = document.querySelectorAll("nav button");
   nav.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
-  document.querySelector("#church-label").textContent = state.churchName || "Your Church";
+  const label = document.querySelector("#church-label");
+  label.textContent = state.churchName ? state.churchName : "Set your church name";
+  label.classList.toggle("unset", !state.churchName);
+  label.title = "Change the church name";
+  label.onclick = () => { setView("setup"); const f = document.getElementById("church-name"); if (f) f.focus(); };
+  label.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); label.onclick(); } };
   const versionEl = document.querySelector("#version");
   if (versionEl) versionEl.textContent = "Version " + VERSION;
   setTitle();
@@ -313,6 +367,7 @@ function render() {
   if (view === "about") root.innerHTML = aboutView();
   if (view === "welcome") root.innerHTML = welcomeView();
   if (view === "booth") root.innerHTML = boothView();
+  root.insertAdjacentHTML("afterbegin", backupReminder());
   bind();
 }
 
@@ -527,7 +582,7 @@ function peopleView() {
     </div>
     <div class="grid-2">
       <section class="card">
-        <img class="qr" alt="QR code for the new-here card" src="https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=${encodeURIComponent(url)}">
+        <img class="qr" alt="QR code for the new-here card" src="${qrDataUrl(url)}">
         <p class="lede">${escapeText(url)}</p>
         <label>Public URL for the QR</label>
         <input id="public-url" value="${escapeAttr(state.publicUrl || "")}" placeholder="https://your-church-site/church-x/">
@@ -566,12 +621,24 @@ function reportView() {
     </section>`;
 }
 
+// QR drawn locally by vendor/qrcode.js (MIT, Kazuhiko Arase), so it works offline.
+function qrDataUrl(text) {
+  try {
+    const qr = qrcode(0, "M");
+    qr.addData(text);
+    qr.make();
+    return qr.createDataURL(8, 12);
+  } catch (err) {
+    return "";
+  }
+}
+
 function setupView() {
   return `
     <div class="top"><div><h1>Church</h1><p class="lede">The name you save here is the name on the title slide and in the browser tab.</p></div></div>
     <section class="card" style="max-width:640px">
       <label>Church name on the slides</label>
-      <input id="church-name" value="${escapeAttr(state.churchName)}">
+      <input id="church-name" value="${escapeAttr(state.churchName || "")}" placeholder="Grace Community Church" autocomplete="organization">
       <label>Pastor</label>
       <input id="pastor-name" value="${escapeAttr(state.pastor || "")}">
       <label>Slide theme</label>
@@ -629,6 +696,16 @@ function aboutView() {
     </section>`;
 }
 
+function supportBlock() {
+  const href = typeof wwmSupportHref === "function" ? wwmSupportHref() : "mailto:churchofx4u@gmail.com";
+  const plans = typeof wwmBillingLinks === "function" ? wwmBillingLinks() : [];
+  const donate = typeof wwmDonateUrl === "function" ? wwmDonateUrl() : "";
+  const ext = /^https?:/.test(href) ? ' target="_blank" rel="noopener"' : "";
+  return `<p class="support-line">Worship With Me is kept going by Church X. <a href="${escapeAttr(href)}"${ext}>Support the work</a></p>`
+    + (donate ? `<p><a class="ghost" href="${escapeAttr(donate)}" target="_blank" rel="noopener">Donate</a></p>` : "")
+    + (plans.length ? `<div class="row">${plans.map((p) => `<a class="ghost" href="${escapeAttr(p.url)}" target="_blank" rel="noopener">${escapeText(p.label)}</a>`).join("")}</div>` : "");
+}
+
 function helpView() {
   return `
     <div class="top">
@@ -660,6 +737,7 @@ function helpView() {
       <h3>Ask Church X</h3>
       <p><a href="mailto:churchofx4u@gmail.com?subject=${encodeURIComponent("Help with Worship With Me " + VERSION)}">Email churchofx4u@gmail.com</a></p>
       <p><a href="https://x.com/realchurchx" target="_blank" rel="noopener">Message @realchurchx on X</a></p>
+      ${supportBlock()}
       <label>Your email</label>
       <input id="help-email" placeholder="you@church.org">
       <label>What do you need?</label>
@@ -672,7 +750,7 @@ function helpView() {
 function boothView() {
   const slides = slidesFor(active());
   const index = Math.max(0, Math.min(slideIndex, Math.max(0, slides.length - 1)));
-  const slide = titleCard ? { title: state.churchName, body: active().name, kicker: "Title" } : (slides[index] || { title: "Empty", body: "" });
+  const slide = titleCard ? { title: churchName(), body: active().name, kicker: "Title" } : (slides[index] || { title: "Empty", body: "" });
   const next = slides[index + 1];
   const blocked = !houseWindow || houseWindow.closed;
   return `
@@ -689,7 +767,7 @@ function boothView() {
     <div class="grid-2">
       <section>
         <div class="booth-slide ${escapeAttr(state.theme || "midnight")}">
-          <div class="kicker">${escapeText(slide.kicker || state.churchName)}</div>
+          <div class="kicker">${escapeText(slide.kicker || churchName())}</div>
           <h2>${escapeText(black ? "Black" : (slide.title || ""))}</h2>
           <p>${escapeText(black ? "" : (slide.body || ""))}</p>
         </div>
@@ -715,7 +793,7 @@ function boothView() {
 
 function welcomeView() {
   return `
-    <div class="top"><div><h1>Welcome to ${escapeText(state.churchName)}</h1><p class="lede">Tell us you were here. This stays with the church. It is not posted.</p></div></div>
+    <div class="top"><div><h1>Welcome to ${escapeText(churchName())}</h1><p class="lede">Tell us you were here. This stays with the church. It is not posted.</p></div></div>
     <section class="card" style="max-width:560px">
       <label>Name</label><input id="guest-name">
       <label>Phone</label><input id="guest-phone">
@@ -725,7 +803,7 @@ function welcomeView() {
       <textarea id="guest-note"></textarea>
       <button class="solid" id="save-guest" style="margin-top:12px">I'm here</button>
       <p id="guest-thanks" class="lede hidden">Got it. Someone from the church can follow up.</p>
-      <p class="lede" style="font-size:13px;margin-top:12px">Your details stay with ${escapeText(state.churchName)} on this device and are only used to follow up with you. They are not posted or shared. <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></p>
+      <p class="lede" style="font-size:13px;margin-top:12px">Your details stay with ${escapeText(churchName())} on this device and are only used to follow up with you. They are not posted or shared. <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></p>
     </section>`;
 }
 
@@ -741,6 +819,12 @@ function bind() {
   if (byId("present")) byId("present").onclick = () => startPresent();
   if (byId("stage")) byId("stage").onclick = () => openStage(true);
   if (byId("export-sunday")) byId("export-sunday").onclick = exportSunday;
+  if (byId("backup-now")) byId("backup-now").onclick = exportSunday;
+  if (byId("backup-later")) byId("backup-later").onclick = () => {
+    localStorage.setItem(BACKUP_SNOOZE, String(Date.now() + 3 * DAY));
+    const el = byId("backup-reminder");
+    if (el) el.remove();
+  };
   if (byId("import-sunday")) byId("import-sunday").onchange = importSunday;
   if (byId("go-next")) byId("go-next").onclick = () => step(1);
   if (byId("go-back")) byId("go-back").onclick = () => step(-1);
@@ -861,7 +945,7 @@ function bind() {
     byId("guest-thanks").classList.remove("hidden");
   };
   if (byId("save-setup")) byId("save-setup").onclick = () => {
-    state.churchName = byId("church-name").value.trim() || "Your Church";
+    state.churchName = byId("church-name").value.trim();
     state.pastor = byId("pastor-name").value.trim();
     state.theme = byId("theme").value;
     state.size = byId("size").value;
@@ -872,7 +956,7 @@ function bind() {
     byId("theme").value = btn.dataset.theme;
     document.querySelectorAll("[data-theme]").forEach((other) => other.classList.toggle("on", other === btn));
   });
-  if (byId("export-all")) byId("export-all").onclick = () => download("church-x-backup.json", JSON.stringify(state, null, 2));
+  if (byId("export-all")) byId("export-all").onclick = () => { download("church-x-backup.json", JSON.stringify(state, null, 2)); markBackedUp(); };
   if (byId("import-all")) byId("import-all").onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -946,7 +1030,7 @@ function startPresent() {
 function sendUsageNote(today) {
   if (state.usageConsent === true && localStorage.getItem("churchx.notified") !== today) {
     localStorage.setItem("churchx.notified", today);
-    notifyUse("Sunday presented", state.churchName + " presented " + active().name + " on " + today);
+    notifyUse("Sunday presented", churchName() + " presented " + active().name + " on " + today);
   }
 }
 
@@ -995,6 +1079,7 @@ function exportSunday() {
   const service = active();
   const name = "worship-with-me-" + (service.date || "sunday") + ".json";
   download(name, JSON.stringify(state, null, 2));
+  markBackedUp();
   fileNote = "Saved " + name + ". Import that file on the church computer.";
   const note = document.getElementById("file-note");
   if (note) note.textContent = fileNote;
@@ -1052,7 +1137,7 @@ function paintSlide() {
   if (!slides.length) return;
   slideIndex = Math.max(0, Math.min(slideIndex, slides.length - 1));
   const slide = titleCard && (isHouse || view === "booth")
-    ? { kind: "title", title: state.churchName, body: active().name, kicker: "Worship With Me" }
+    ? { kind: "title", title: churchName(), body: active().name, kicker: "Worship With Me" }
     : slides[slideIndex];
   stage.className = "stage on " + state.theme + " " + state.size + (!isHouse && showNotes ? " stage-notes" : "");
   const screen = document.querySelector("#screen");
@@ -1077,7 +1162,7 @@ function paintSlide() {
     } else if (slide.item && slide.item.type === "video") {
       screen.innerHTML = "<h2>" + escapeText(slide.item.title || "Video") + "</h2><p>Playing on the projector.</p>";
     } else {
-      screen.innerHTML = `<div class="kicker">${escapeText(slide.kicker || state.churchName)}</div><h2>${escapeText(slide.title || "")}</h2><p>${escapeText(slide.body || "")}</p>`;
+      screen.innerHTML = `<div class="kicker">${escapeText(slide.kicker || churchName())}</div><h2>${escapeText(slide.title || "")}</h2><p>${escapeText(slide.body || "")}</p>`;
     }
   }
   document.querySelector("#pos").textContent = (slideIndex + 1) + " / " + slides.length;

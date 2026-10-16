@@ -71,7 +71,7 @@ function wizardBody() {
     <h2 id="wizard-title">Welcome. What is your church called?</h2>
     <p class="lede">The name is the title slide and the browser tab. You can change it on the Church screen.</p>
     <label for="wiz-name">Church name</label>
-    <input id="wiz-name" value="${escapeAttr(state.churchName === "Your Church" ? "" : state.churchName)}" placeholder="Grace Community Church">`;
+    <input id="wiz-name" value="${escapeAttr(state.churchName || "")}" placeholder="Grace Community Church">`;
   if (wizardStep === 1) return `
     <h2 id="wizard-title">Pick a look for the projector</h2>
     <p class="lede">This is the background behind the lyrics.</p>

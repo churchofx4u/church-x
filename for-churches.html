@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Worship With Me — Sunday slides for your church</title>
-  <meta name="description" content="Lyrics on the projector. The run sheet on the laptop. Public-domain hymns are built in. Try it this Sunday.">
+  <meta name="description" content="A free browser app to run Sunday services: slides, songs, scripture, and the run sheet. Works offline.">
   <meta property="og:title" content="Worship With Me">
   <meta property="og:description" content="Lyrics on the projector. The run sheet on the laptop.">
   <meta property="og:image" content="https://churchofx4u.github.io/church-x/share.jpg">
@@ -16,79 +16,196 @@
   <meta name="theme-color" content="#14110e">
   <link rel="stylesheet" href="./styles.css">
   <style>
-    .pitch { max-width: 760px; margin: 0 auto; padding: 48px 22px 72px; }
-    .pitch .mark { margin-bottom: 22px; }
-    .pitch h1 { font-size: clamp(40px, 7vw, 64px); }
-    .price-line { font-family: var(--serif); font-size: 28px; margin: 8px 0 0; }
-    .pitch .card { margin-top: 18px; }
-    .pitch li { margin: 8px 0; }
-    .post {
-      white-space: pre-wrap;
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
-      font-family: var(--sans);
-      font-size: 15px;
+    body { background: var(--bg); }
+    a { color: inherit; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
+    .skip { position: absolute; left: -999px; top: 8px; background: var(--panel); padding: 8px 12px; border-radius: 8px; z-index: 10; }
+    .skip:focus { left: 8px; }
+    .btn { display: inline-block; text-decoration: none; font-weight: 600; }
+    .btn:focus-visible, a:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 3px; }
+    .hero { color: #f6f1e7; background: linear-gradient(rgba(20,17,14,.72), rgba(20,17,14,.86)), url("./themes/midnight.jpg") center / cover; padding: 22px 0 72px; }
+    .hero nav { display: flex; flex-direction: row; overflow: visible; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .hero .mark span { color: #c4a36a; }
+    .hero a.ghost { background: transparent; border-color: rgba(246,241,231,.35); color: #f6f1e7; }
+    .eyebrow { letter-spacing: .16em; text-transform: uppercase; color: #c4a36a; font-size: 12px; margin: 64px 0 10px; }
+    .hero h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(38px, 6.4vw, 66px); line-height: 1.06; margin: 0; max-width: 15em; }
+    .hero .sub { color: #e6dccd; font-size: clamp(17px, 2.2vw, 20px); line-height: 1.5; max-width: 40em; margin: 18px 0 0; }
+    .hero .solid { background: #f6f1e7; color: var(--ink); padding: 14px 22px; font-size: 17px; }
+    .hero .note { color: #b7aa9a; font-size: 14px; margin-top: 12px; }
+    section.band { padding: 56px 0 8px; }
+    .band h2, .cta-end h2 { font-family: var(--serif); font-size: clamp(28px, 4vw, 38px); margin: 0 0 6px; }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; }
+    .features h3, .steps h3, .trust h3 { margin: 0 0 6px; font-size: 18px; }
+    .features p, .steps p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .steps { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: s; }
+    .steps li { counter-increment: s; }
+    .steps li::before { content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: #f6f1e7; font-weight: 700; margin-bottom: 12px; }
+    .trust { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+    .trust p { margin: 6px 0 0; line-height: 1.5; }
+    .post { white-space: pre-wrap; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: 15px; }
+    .cta-end { text-align: center; padding: 56px 0; }
+    .cta-end h2 { margin-bottom: 16px; }
+    .cta-end .solid { padding: 14px 22px; font-size: 17px; }
+    footer { border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    footer a { margin-right: 12px; }
+    .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 36px; align-items: center; }
+    .shot { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .hero .shot { border-color: rgba(246,241,231,.18); box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+    figure { margin: 0; }
+    figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+    .hero figcaption { color: #b7aa9a; }
+    .shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; align-items: start; }
+    .license-note { margin-top: 14px; font-size: 14px; color: var(--muted); }
+    .faq { max-width: 760px; margin-top: 18px; }
+    .faq details { border-bottom: 1px solid var(--line); padding: 14px 0; }
+    .faq summary { cursor: pointer; font-weight: 600; font-size: 17px; }
+    .faq details p { margin: 10px 0 0; color: var(--muted); line-height: 1.5; }
+    .pilot { margin-top: 14px; }
+    .mobile-cta { display: none; }
+    @media (max-width: 820px) {
+      .hero-grid, .shots { grid-template-columns: 1fr; }
+      .mobile-cta { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: rgba(20,17,14,.94); justify-content: center; }
+      .mobile-cta a { width: 100%; max-width: 420px; text-align: center; background: #f6f1e7; color: var(--ink); padding: 13px 18px; }
+      body { padding-bottom: 72px; }
+      .features, .steps, .trust { grid-template-columns: 1fr; }
+      .eyebrow { margin-top: 40px; }
     }
   </style>
 </head>
 <body>
-  <main class="pitch">
-    <div class="mark">
-      <img class="chi" src="./icon.svg" alt="" width="36" height="36">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="hero">
+    <div class="wrap">
+      <nav aria-label="Site">
+        <div class="mark">
+          <img class="chi" src="./icon.svg" alt="" width="36" height="36">
+          <div><b>WORSHIP WITH ME</b><span>Sunday slides for your church</span></div>
+        </div>
+        <a class="ghost btn" href="./index.html?from=for-churches-nav">Open the app</a>
+      </nav>
+      <div class="hero-grid">
       <div>
-        <b>WORSHIP WITH ME</b>
-        <span>Sunday slides for your church</span>
+      <p class="eyebrow">Free · Runs in your browser</p>
+      <h1>Run your whole Sunday service from one browser tab.</h1>
+      <p class="sub">Worship With Me is a free app for the church laptop. It puts the slides, songs, and scripture on the projector and keeps the run sheet in front of you. It still works if the wifi drops.</p>
+      <div class="row" style="margin-top:26px">
+        <a class="solid btn cta" href="./index.html?from=for-churches">Run this Sunday free</a>
+        <a class="ghost btn" href="https://x.com/realchurchx">Message @realchurchx</a>
+      </div>
+      <p class="note">Works in your browser. No install or account needed.</p>
+      </div>
+      <figure>
+        <picture>
+          <source srcset="./shots/run-sheet.webp" type="image/webp">
+          <img class="shot" src="./shots/run-sheet.png" width="960" height="600" alt="Run sheet on the laptop, lyrics on the projector">
+        </picture>
+        <figcaption>The laptop view while presenting: the current slide, Next and Back, and the run sheet.</figcaption>
+      </figure>
       </div>
     </div>
-    <p class="kicker" style="letter-spacing:.16em;text-transform:uppercase;color:#8a3d2f;font-size:12px;">For the church laptop</p>
-    <h1>Lyrics on the projector. The run sheet on the laptop.</h1>
-    <p class="lede">Worship With Me is a Sunday program for one church. The songs go on the screen. The order, the team, and the notes stay with the person running the service.</p>
-    <div class="row" style="margin-top:18px">
-      <a class="solid" href="./index.html" style="text-decoration:none">Open the app</a>
-      <a class="ghost" href="https://x.com/realchurchx" style="text-decoration:none">Message @realchurchx</a>
-    </div>
-    <section class="card">
-      <h3>What a church gets</h3>
-      <ul>
-        <li>Present opens a projector window. This laptop keeps the run sheet.</li>
-        <li>Public-domain hymns are built in. Licensed lyrics stay on the church computer.</li>
-        <li>The church name is the title slide. A licensed song ends with the author and license number.</li>
-        <li>Export Sunday, take the file to the building, and import it there.</li>
-        <li>If the wifi drops after the first open, it still opens.</li>
-      </ul>
-    </section>
-    <section class="card">
-      <h3>Try it this Sunday</h3>
-      <p>Use it on a real Sunday before anyone is asked to pay. After a church that is not Church X has presented a real service, the price is $9 a month or $79 a year.</p>
-      <p class="price-line">$9 a month · $79 a year</p>
-      <p class="lede">Payment is not turned on yet. There is nothing to buy on this page.</p>
-    </section>
-    <section class="card">
-      <h3>A post you can share</h3>
-      <div class="post" id="post">Worship With Me puts the lyrics on the projector and the run sheet on the laptop.
+  </header>
 
-Public-domain hymns are built in. Your church name is the title slide. It still opens if the wifi drops.
+  <main id="main">
+    <section class="band" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title">Everything Sunday needs</h2>
+        <p class="lede">Made for one church and the one person running the slides.</p>
+        <div class="features">
+          <article class="card"><h3>Slides on the projector</h3><p>Present opens a second window for the screen. Arrow keys move the slides, B blacks the screen, T shows the title.</p></article>
+          <article class="card"><h3>Songs and hymns</h3><p>Public-domain hymns are built in. Add your own songs, and licensed songs end with the author, copyright line, and CCLI number.</p></article>
+          <article class="card"><h3>Scripture</h3><p>Paste a passage and it splits into readable slides. King James samples are included.</p></article>
+          <article class="card"><h3>Run sheet</h3><p>The order of service, who's greeting, sound, prayer, and preaching, plus your notes, all on the laptop.</p></article>
+          <article class="card"><h3>Works offline</h3><p>Open it once with wifi and it opens again without it. Export Sunday, carry the file to the building, and import it there.</p></article>
+          <article class="card"><h3>Welcome guests</h3><p>A QR welcome card for new visitors, and a CCLI log of the songs you used.</p></article>
+        </div>
+        <div class="shots">
+          <figure>
+            <picture><source srcset="./shots/lyrics.webp" type="image/webp"><img class="shot" src="./shots/lyrics.png" width="640" height="360" loading="lazy" alt="Projector slide showing the first verse of Holy, Holy, Holy"></picture>
+            <figcaption>Present: lyrics on the projector.</figcaption>
+          </figure>
+          <figure>
+            <picture><source srcset="./shots/hymn-picker.webp" type="image/webp"><img class="shot" src="./shots/hymn-picker.png" width="460" height="430" loading="lazy" alt="Add to this service panel with the built-in public-domain hymn picker"></picture>
+            <figcaption>Built-in public-domain hymns, ready to add.</figcaption>
+          </figure>
+          <figure>
+            <picture><source srcset="./shots/title-slide.webp" type="image/webp"><img class="shot" src="./shots/title-slide.png" width="640" height="360" loading="lazy" alt="Title slide with the church name Grace Community"></picture>
+            <figcaption>Your church name on the title slide.</figcaption>
+          </figure>
+        </div>
+        <p class="license-note">Churches still need their own CCLI or OneLicense license for songs that are not public domain.</p>
+      </div>
+    </section>
 
-Try it this Sunday.
+    <section class="band" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">How Sunday works</h2>
+        <ol class="steps">
+          <li class="card"><h3>Plan at home</h3><p>Open the app. The first time, a short setup guide asks for your church name and a projector theme, and can load a sample Sunday. Then add hymns, scripture, and words slides, and fill in the run sheet.</p></li>
+          <li class="card"><h3>Export</h3><p>Press Export Sunday to save the service as a file. Take it to church on a USB stick or by email, and use Import Sunday on the church laptop.</p></li>
+          <li class="card"><h3>Present at church</h3><p>Press Present and drag the new window to the projector. Your laptop keeps the run sheet. No second screen? Rehearse shows everything on one.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="trust-title">
+      <div class="wrap">
+        <h2 id="trust-title">Your service stays on your computer</h2>
+        <div class="trust">
+          <div class="card"><h3>Private by default</h3><p>Services, songs, and new-visitor cards are saved in this browser on the church computer. They are not uploaded. If you agree, the app sends one short note when you present (church name, service name, date, and version) and nothing else. <a href="./privacy.html">Read the privacy page</a>.</p></div>
+          <div class="card"><h3>Ready when the wifi isn't</h3><p>After the first visit, the app is saved on the computer and opens without a connection. Imported files stay on the computer too.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="faq-title">
+      <div class="wrap">
+        <h2 id="faq-title">Questions</h2>
+        <div class="faq">
+          <details><summary>Do we need internet?</summary><p>Only the first time. After the app has been opened once, it opens on that computer without a connection, so a dropped church wifi doesn't stop the service.</p></details>
+          <details><summary>Which hymns are included?</summary><p>Public-domain hymns, including Amazing Grace, Holy, Holy, Holy, It Is Well with My Soul, Come, Thou Fount, Blessed Assurance, A Mighty Fortress, Be Thou My Vision, Abide with Me, and the Doxology. There are also King James scripture samples.</p></details>
+          <details><summary>What about licensed songs?</summary><p>Paste lyrics from SongSelect if your church holds a CCLI license. The last slide shows the author, copyright line, and your license number, and the CCLI log keeps track of what you sang. Churches still need their own CCLI or OneLicense license. Streaming the lyrics may need a separate streaming license.</p></details>
+        </div>
+        <p class="pilot"><strong>Pilot churches wanted.</strong> Run a real Sunday with it and tell us how it went. <a href="mailto:churchofx4u@gmail.com?subject=Pilot%20Sunday">Email churchofx4u@gmail.com</a>.</p>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="share-title">
+      <div class="wrap" style="max-width:760px">
+        <h2 id="share-title">Tell another church</h2>
+        <div class="post" id="post">Worship With Me is a free browser app for Sunday: slides, songs, scripture, and the run sheet. It still opens if the wifi drops.
+
+Run this Sunday free.
 https://churchofx4u.github.io/church-x/for-churches.html</div>
-      <button class="solid" id="copy-post" style="margin-top:12px" type="button">Copy post</button>
-      <p class="lede" id="copied" hidden>Copied. Paste it on X.</p>
+        <div class="row" style="margin-top:12px">
+          <button class="solid" id="copy-post" type="button">Copy post</button>
+          <a class="ghost btn" id="share-x" href="https://x.com/intent/post" target="_blank" rel="noopener">Share on X</a>
+        </div>
+        <p class="lede" id="copied" role="status" hidden>Copied ✓</p>
+      </div>
     </section>
-    <p class="lede" style="margin-top:22px">Help: <a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a> · <a href="https://x.com/realchurchx">@realchurchx</a> · <a href="./privacy.html">Privacy</a> · <a href="./terms.html">Terms</a></p>
+
+    <section class="cta-end" aria-labelledby="end-title">
+      <div class="wrap">
+        <h2 id="end-title">Try it this Sunday.</h2>
+        <a class="solid btn cta" href="./index.html?from=for-churches-end">Run this Sunday free</a>
+        <p class="lede" style="margin:12px auto 0">Works in your browser. No install or account needed.</p>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Worship With Me by Church X</span>
+      <span><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a><a href="https://x.com/realchurchx">@realchurchx</a><a id="support-link" href="mailto:churchofx4u@gmail.com">Support Worship With Me</a></span>
+    </div>
+  </footer>
+  <div class="mobile-cta"><a class="solid btn" href="./index.html?from=for-churches-mobile">Run this Sunday free</a></div>
+  <script src="./config.js"></script>
+  <script src="./landing.js"></script>
   <script>
-    document.querySelector("#copy-post").onclick = async () => {
-      const text = document.querySelector("#post").textContent;
-      try {
-        await navigator.clipboard.writeText(text);
-        document.querySelector("#copied").hidden = false;
-      } catch (err) {
-        document.querySelector("#copied").textContent = "Select the post and copy it.";
-        document.querySelector("#copied").hidden = false;
-      }
-    };
+    var supportLink = document.querySelector("#support-link");
+    if (supportLink && window.wwmSupportHref) supportLink.href = window.wwmSupportHref();
   </script>
 </body>
 </html>
