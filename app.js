@@ -632,8 +632,10 @@ function aboutView() {
 function supportBlock() {
   const href = typeof wwmSupportHref === "function" ? wwmSupportHref() : "mailto:churchofx4u@gmail.com";
   const plans = typeof wwmBillingLinks === "function" ? wwmBillingLinks() : [];
+  const donate = typeof wwmDonateUrl === "function" ? wwmDonateUrl() : "";
   const ext = /^https?:/.test(href) ? ' target="_blank" rel="noopener"' : "";
   return `<p class="support-line">Worship With Me is kept going by Church X. <a href="${escapeAttr(href)}"${ext}>Support the work</a></p>`
+    + (donate ? `<p><a class="ghost" href="${escapeAttr(donate)}" target="_blank" rel="noopener">Donate</a></p>` : "")
     + (plans.length ? `<div class="row">${plans.map((p) => `<a class="ghost" href="${escapeAttr(p.url)}" target="_blank" rel="noopener">${escapeText(p.label)}</a>`).join("")}</div>` : "");
 }
 

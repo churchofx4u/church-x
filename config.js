@@ -1,9 +1,17 @@
 // Worship With Me site config. Plain values only; loaded before app.js.
 //
+// WHAT CHURCH X CREATES IN STRIPE (no API keys needed, nothing secret here):
+//   Stripe Dashboard -> Payment Links -> + New, three times:
+//   1. Donation: product "Support Worship With Me", pricing
+//      "Customers choose what to pay". Paste into donateStripeUrl.
+//   2. Subscription: $9.00 USD, recurring monthly. Paste into stripe.monthly.url.
+//   3. Subscription: $79.00 USD, recurring yearly. Paste into stripe.yearly.url.
+//   Each URL looks like https://buy.stripe.com/... and is safe to publish.
+//
 // SUPPORT / DONATE
-//   donateUrl: paste a real donation page here (Stripe donation link, PayPal,
-//   church giving page...). While it is empty, "Support" opens an email to
-//   churchofx4u@gmail.com instead.
+//   "Support the work" always shows and emails churchofx4u@gmail.com.
+//   A "Donate" Stripe button shows only when donateEnabled is true AND
+//   donateStripeUrl is a https://buy.stripe.com/ link.
 //
 // BILLING (Pro) - OFF.
 //   billingEnabled must stay false until Church X approves charging.
@@ -11,7 +19,8 @@
 //   ($9/month and $79/year), paste them below, then set billingEnabled: true.
 //   Nothing billing-related renders while billingEnabled is false.
 window.WWM_CONFIG = {
-  donateUrl: "", // PLACEHOLDER: paste real donate link
+  donateEnabled: false,
+  donateStripeUrl: "", // PLACEHOLDER: https://buy.stripe.com/... (customer chooses amount)
   billingEnabled: false,
   stripe: {
     monthly: { label: "$9 a month", url: "" }, // PLACEHOLDER: https://buy.stripe.com/...
@@ -21,7 +30,12 @@ window.WWM_CONFIG = {
 
 window.wwmSupportHref = function () {
   const c = window.WWM_CONFIG || {};
-  return c.donateUrl || "mailto:churchofx4u@gmail.com?subject=" + encodeURIComponent("Supporting Worship With Me");
+  return "mailto:churchofx4u@gmail.com?subject=" + encodeURIComponent("Supporting Worship With Me");
+};
+
+window.wwmDonateUrl = function () {
+  const c = window.WWM_CONFIG || {};
+  return c.donateEnabled && /^https:\/\/buy\.stripe\.com\//.test(c.donateStripeUrl || "") ? c.donateStripeUrl : "";
 };
 
 window.wwmBillingLinks = function () {
