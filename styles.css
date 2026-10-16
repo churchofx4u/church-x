@@ -320,3 +320,26 @@ body.house .notes { display: none; }
   body { background: #fff; }
 }
 .rail .version a { color: #c4a36a; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(20, 17, 14, 0.55);
+}
+.overlay-card { max-width: 540px; width: 100%; padding: 28px; }
+.overlay-card h2 { margin: 10px 0 4px; }
+.overlay-card .lede { margin-top: 10px; }
+.overlay-card .theme-grid { margin-top: 14px; }
+.overlay-actions { margin-top: 18px; }
+.wizard-nav { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 14px; }
+.wizard-nav #wiz-back { margin-right: auto; }
+.wizard-dots { display: flex; gap: 6px; align-items: center; }
+.wizard-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.wizard-dots span.on { background: var(--accent-2); }
+.wizard-dots small { margin-left: 8px; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.keys p { margin: 8px 0; }
+kbd { display: inline-block; min-width: 24px; padding: 2px 7px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: #fff; font: 13px var(--sans); text-align: center; }
