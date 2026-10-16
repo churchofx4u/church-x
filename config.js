@@ -20,11 +20,13 @@
 //   Nothing billing-related renders while billingEnabled is false.
 window.WWM_CONFIG = {
   donateEnabled: false,
+  // Not filled: the link offered for donations (buy.stripe.com/6oU5kDgilczn8IaffCdby02,
+  // "Give a gift") is a fixed $10.00/month subscription, not "customer chooses what to pay".
   donateStripeUrl: "", // PLACEHOLDER: https://buy.stripe.com/... (customer chooses amount)
   billingEnabled: false,
   stripe: {
-    monthly: { label: "$9 a month", url: "" }, // PLACEHOLDER: https://buy.stripe.com/...
-    yearly: { label: "$79 a year", url: "" }   // PLACEHOLDER: https://buy.stripe.com/...
+    monthly: { label: "$9 a month", url: "https://buy.stripe.com/00wfZh9TX8j72jM3wUdby00" }, // verified: $9.00 per month
+    yearly: { label: "$79 a year", url: "https://buy.stripe.com/7sY3cv1nr6aZ7E6gjGdby01" }  // verified: $79.00 per year
   }
 };
 
