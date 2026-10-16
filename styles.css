@@ -343,3 +343,7 @@ body.house .notes { display: none; }
 .wizard-dots small { margin-left: 8px; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
 .keys p { margin: 8px 0; }
 kbd { display: inline-block; min-width: 24px; padding: 2px 7px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: #fff; font: 13px var(--sans); text-align: center; }
+
+#church-label { cursor: pointer; }
+#church-label:hover { text-decoration: underline; }
+#church-label.unset { color: var(--accent-2); font-style: italic; }
