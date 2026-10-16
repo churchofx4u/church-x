@@ -355,3 +355,7 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 7px; border: 1px soli
 #church-label { cursor: pointer; }
 #church-label:hover { text-decoration: underline; }
 #church-label.unset { color: var(--accent-2); font-style: italic; }
+
+.support-line { color: var(--muted); }
+.support-foot { margin: 28px 0 8px; text-align: center; font-size: 14px; }
+.support-foot a { color: var(--muted); }

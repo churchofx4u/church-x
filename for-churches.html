@@ -197,10 +197,15 @@ https://churchofx4u.github.io/church-x/for-churches.html</div>
   <footer>
     <div class="wrap">
       <span>Worship With Me by Church X</span>
-      <span><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a><a href="https://x.com/realchurchx">@realchurchx</a></span>
+      <span><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="mailto:churchofx4u@gmail.com">churchofx4u@gmail.com</a><a href="https://x.com/realchurchx">@realchurchx</a><a id="support-link" href="mailto:churchofx4u@gmail.com">Support Worship With Me</a></span>
     </div>
   </footer>
   <div class="mobile-cta"><a class="solid btn" href="./index.html?from=for-churches-mobile">Run this Sunday free</a></div>
+  <script src="./config.js"></script>
   <script src="./landing.js"></script>
+  <script>
+    var supportLink = document.querySelector("#support-link");
+    if (supportLink && window.wwmSupportHref) supportLink.href = window.wwmSupportHref();
+  </script>
 </body>
 </html>
