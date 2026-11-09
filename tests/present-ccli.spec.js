@@ -83,7 +83,7 @@ test.describe("Present and Rehearse CCLI logging", () => {
       setView("report");
     });
 
-    await expect(page.getByRole("heading", { name: "CCLI log", exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'CCLI log', exact: true })).toBeVisible();
     await expect(page.locator("table")).toContainText("Present a service");
   });
 });
