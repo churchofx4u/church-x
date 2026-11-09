@@ -389,3 +389,7 @@ textarea.lyrics-paste { min-height: 220px; }
 .song-preview-block { border-top: 1px solid var(--line); padding: 10px 0; }
 .song-preview-block small { display: block; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; font-size: 11px; margin-bottom: 4px; }
 .song-preview-block pre { margin: 0; font-family: var(--serif); font-size: 16px; white-space: pre-wrap; line-height: 1.4; }
+
+.template-manage { margin-top: 4px; }
+.template-row { justify-content: flex-start; gap: 8px; margin: 6px 0; align-items: center; }
+.template-row span { flex: 1; min-width: 120px; }
