@@ -37,7 +37,7 @@ test.describe("CCLI report and CSV export", () => {
     );
 
     await page.locator("nav button[data-view='report']").click();
-    await expect(page.locator("h1")).toContainText("CCLI log");
+    await expect(page.getByRole('heading', { name: 'CCLI log', exact: true })).toBeVisible();
     await expect(page.locator(".period-bar")).toContainText("Current period");
     await expect(page.locator("table")).toContainText("In Christ Alone");
     await expect(page.locator("table")).toContainText("3350395");

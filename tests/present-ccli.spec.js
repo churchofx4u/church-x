@@ -10,7 +10,7 @@ test.describe("Present and Rehearse CCLI logging", () => {
     await dismissConsentIfAny(page, "no");
 
     await expect(page.locator("#go-next")).toBeVisible();
-    await expect(page.locator("h1")).toContainText("Test Sunday");
+    await expect(page.getByRole('heading', { name: 'Test Sunday', exact: true })).toBeVisible();
 
     let popup = null;
     try {
@@ -41,7 +41,7 @@ test.describe("Present and Rehearse CCLI logging", () => {
     expect(state.usage.filter((u) => u.title === "Amazing Grace")).toHaveLength(1);
 
     await page.locator("nav button[data-view='report']").click();
-    await expect(page.locator("h1")).toContainText("CCLI log");
+    await expect(page.getByRole('heading', { name: 'CCLI log', exact: true })).toBeVisible();
     await expect(page.locator("table")).toContainText("In Christ Alone");
     await expect(page.locator("table")).toContainText("3350395");
     await expect(page.locator("table")).toContainText("Amazing Grace");
@@ -50,13 +50,24 @@ test.describe("Present and Rehearse CCLI logging", () => {
   test("Rehearse does NOT add songs to the CCLI log", async ({ page }) => {
     await seedAndGoto(page, fixtureState({ usage: [], usageConsent: false }));
 
-    // Rehearse button shares id="stage" with the projector overlay, so openStage
-    // styles the button as the full-screen stage. Still, countingUsage is false.
-    await page.getByRole("button", { name: "Rehearse" }).click();
+    await expect(page.locator("#rehearse")).toBeVisible();
+    await expect(page.locator("div#stage.stage")).toBeVisible({ visible: false }).catch(() => {});
+    // Overlay keeps id=stage; Rehearse uses id=rehearse (no duplicate ids).
+    const ids = await page.evaluate(() => ({
+      rehearse: !!document.getElementById("rehearse"),
+      stageDiv: !!(document.querySelector("div#stage.stage")),
+      stageButtons: document.querySelectorAll("button#stage").length
+    }));
+    expect(ids.rehearse).toBe(true);
+    expect(ids.stageDiv).toBe(true);
+    expect(ids.stageButtons).toBe(0);
+
+    await page.locator("#rehearse").click();
 
     await expect
       .poll(async () => page.evaluate(() => typeof countingUsage !== "undefined" && countingUsage === false))
       .toBeTruthy();
+    await expect(page.locator("div#stage.stage.on")).toBeVisible();
 
     await page.evaluate(() => {
       const slides = slidesFor(active());
@@ -66,18 +77,13 @@ test.describe("Present and Rehearse CCLI logging", () => {
     const state = await readState(page);
     expect(state.usage).toEqual([]);
 
-    // Leave rehearsal without clicking through the covering stage button.
     await page.evaluate(() => {
-      document.querySelectorAll(".stage.on, button#stage.on, button.stage").forEach((el) => {
-        el.classList.remove("on");
-        if (el.tagName === "BUTTON") el.className = "ghost";
-      });
-      const overlay = document.querySelector("div.stage");
+      const overlay = document.querySelector("div#stage.stage");
       if (overlay) overlay.classList.remove("on");
       setView("report");
     });
 
-    await expect(page.locator("h1")).toContainText("CCLI log");
+    await expect(page.getByRole("heading", { name: "CCLI log", exact: true })).toBeVisible();
     await expect(page.locator("table")).toContainText("Present a service");
   });
 });
