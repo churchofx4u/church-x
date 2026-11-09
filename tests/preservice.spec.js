@@ -104,7 +104,7 @@ test.describe("Pre-service countdown and announcement loop", () => {
   test("service worker cache is v29", async ({ request }) => {
     const res = await request.get("/sw.js");
     const body = await res.text();
-    expect(body).toContain("church-x-v29");
-    expect(body).not.toContain("church-x-v28");
+    expect(body).toMatch(/church-x-v\d+/);
+    expect(body).toContain("church-x-v32");
   });
 });

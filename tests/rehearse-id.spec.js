@@ -19,6 +19,6 @@ test.describe("Rehearse id vs projector overlay", () => {
   test("service worker cache is v29", async ({ request }) => {
     const res = await request.get("/sw.js");
     const body = await res.text();
-    expect(body).toContain("church-x-v29");
+    expect(body).toContain("church-x-v32");
   });
 });
