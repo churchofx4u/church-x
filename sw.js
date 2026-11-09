@@ -66,7 +66,7 @@ self.addEventListener("fetch", (event) => {
       caches.open(CACHE).then((cache) => cache.put(event.request, copy));
       return response;
     }).catch(() => {
-      if (url.pathname.endsWith("index.html") || url.search.includes("screen=house") || url.search.includes("screen=stage") || url.search.includes("screen=remote")) return caches.match("./index.html");
+      if (url.pathname.endsWith("index.html") || url.search.includes("screen=house") || url.search.includes("screen=stage") || url.search.includes("screen=remote") || url.search.includes("screen=lower")) return caches.match("./index.html");
       return caches.match(event.request);
     })
   );
