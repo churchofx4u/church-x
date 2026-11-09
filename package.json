@@ -1,0 +1,15 @@
+{
+  "name": "church-x-tests",
+  "private": true,
+  "description": "Dev-only automated tests for Worship With Me. Not shipped to GitHub Pages.",
+  "scripts": {
+    "test": "npm run test:parsers && playwright test",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "test:parsers": "node test/song-import-test.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "http-server": "^14.1.1"
+  }
+}
