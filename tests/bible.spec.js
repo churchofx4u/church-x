@@ -13,9 +13,9 @@ test.describe("Offline Bible (WEB)", () => {
     expect(book["3"]["16"]).toMatch(/God so loved the world/i);
   });
 
-  test("service worker lists bible.js, index, and cache v30", async ({ request }) => {
+  test("service worker lists bible.js, index, and cache v31", async ({ request }) => {
     const body = await (await request.get("/sw.js")).text();
-    expect(body).toContain("church-x-v30");
+    expect(body).toContain("church-x-v31");
     expect(body).toContain("./bible.js");
     expect(body).toContain("./bible/web/index.json");
   });

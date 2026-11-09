@@ -101,10 +101,10 @@ test.describe("Pre-service countdown and announcement loop", () => {
     expect(screen).toMatch(/\d+:\d{2}/);
   });
 
-  test("service worker cache is v30", async ({ request }) => {
+  test("service worker cache is v31", async ({ request }) => {
     const res = await request.get("/sw.js");
     const body = await res.text();
-    expect(body).toContain("church-x-v30");
-    expect(body).not.toContain("church-x-v29");
+    expect(body).toContain("church-x-v31");
+    expect(body).not.toContain("church-x-v30");
   });
 });

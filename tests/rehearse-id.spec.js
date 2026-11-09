@@ -16,9 +16,9 @@ test.describe("Rehearse id vs projector overlay", () => {
     await expect(page.locator("div#stage.stage.on")).toHaveCount(0);
   });
 
-  test("service worker cache is v30", async ({ request }) => {
+  test("service worker cache is v31", async ({ request }) => {
     const res = await request.get("/sw.js");
     const body = await res.text();
-    expect(body).toContain("church-x-v30");
+    expect(body).toContain("church-x-v31");
   });
 });
