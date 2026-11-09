@@ -119,6 +119,16 @@ const HYMNS = [
     ]
   },
   {
+    title: "Hark! the Herald Angels Sing",
+    author: "Charles Wesley",
+    year: "1739",
+    pd: true,
+    verses: [
+      "Hark! the herald angels sing,\n\"Glory to the newborn King;\nPeace on earth, and mercy mild,\nGod and sinners reconciled!\"\nJoyful, all ye nations, rise,\nJoin the triumph of the skies;\nWith th'angelic host proclaim,\n\"Christ is born in Bethlehem!\"\nHark! the herald angels sing,\n\"Glory to the newborn King!\"",
+      "Hail the heaven-born Prince of Peace!\nHail the Sun of Righteousness!\nLight and life to all he brings,\nRisen with healing in his wings.\nMild he lays his glory by,\nBorn that man no more may die,\nBorn to raise the sons of earth,\nBorn to give them second birth.\nHark! the herald angels sing,\n\"Glory to the newborn King!\""
+    ]
+  },
+  {
     title: "Christ the Lord Is Risen Today",
     author: "Charles Wesley",
     year: "1739",
@@ -142,6 +152,26 @@ const SCRIPTURES = [
   {
     ref: "Numbers 6:24–26",
     text: "The Lord bless thee, and keep thee:\nThe Lord make his face shine upon thee, and be gracious unto thee:\nThe Lord lift up his countenance upon thee, and give thee peace."
+  },
+  {
+    ref: "1 Corinthians 11:23–26",
+    text: "For I have received of the Lord that which also I delivered unto you, That the Lord Jesus the same night in which he was betrayed took bread:\nAnd when he had given thanks, he brake it, and said, Take, eat: this is my body, which is broken for you: this do in remembrance of me.\nAfter the same manner also he took the cup, when he had supped, saying, This cup is the new testament in my blood: this do ye, as oft as ye drink it, in remembrance of me.\nFor as often as ye eat this bread, and drink this cup, ye do shew the Lord's death till he come."
+  },
+  {
+    ref: "Luke 2:8–14",
+    text: "And there were in the same country shepherds abiding in the field, keeping watch over their flock by night.\nAnd, lo, the angel of the Lord came upon them, and the glory of the Lord shone round about them: and they were sore afraid.\nAnd the angel said unto them, Fear not: for, behold, I bring you good tidings of great joy, which shall be to all people.\nFor unto you is born this day in the city of David a Saviour, which is Christ the Lord.\nAnd this shall be a sign unto you; Ye shall find the babe wrapped in swaddling clothes, lying in a manger.\nAnd suddenly there was with the angel a multitude of the heavenly host praising God, and saying,\nGlory to God in the highest, and on earth peace, good will toward men."
+  },
+  {
+    ref: "Matthew 28:1–7",
+    text: "In the end of the sabbath, as it began to dawn toward the first day of the week, came Mary Magdalene and the other Mary to see the sepulchre.\nAnd, behold, there was a great earthquake: for the angel of the Lord descended from heaven, and came and rolled back the stone from the door, and sat upon it.\nHis countenance was like lightning, and his raiment white as snow:\nAnd for fear of him the keepers did shake, and became as dead men.\nAnd the angel answered and said unto the women, Fear not ye: for I know that ye seek Jesus, which was crucified.\nHe is not here: for he is risen, as he said. Come, see the place where the Lord lay.\nAnd go quickly, and tell his disciples that he is risen from the dead; and, behold, he goeth before you into Galilee; there shall ye see him: lo, I have told you."
+  },
+  {
+    ref: "John 14:1–3",
+    text: "Let not your heart be troubled: ye believe in God, believe also in me.\nIn my Father's house are many mansions: if it were not so, I would have told you. I go to prepare a place for you.\nAnd if I go and prepare a place for you, I will come again, and receive you unto myself; that where I am, there ye may be also."
+  },
+  {
+    ref: "Psalm 46:1–2",
+    text: "God is our refuge and strength, a very present help in trouble.\nTherefore will not we fear, though the earth be removed, and though the mountains be carried into the midst of the sea."
   }
 ];
 
@@ -208,6 +238,210 @@ function blankService() {
   return { id: uid(), name: "Sunday gathering", date: new Date().toISOString().slice(0, 10), items: [] };
 }
 
+function hymnByTitle(title) {
+  const h = HYMNS.find((x) => x.title === title);
+  if (!h) throw new Error("Missing hymn " + title);
+  return { id: uid(), type: "hymn", title: h.title, author: h.author, year: h.year, pd: true, ccli: "", verses: h.verses.slice() };
+}
+
+function scriptureByRef(ref) {
+  const s = SCRIPTURES.find((x) => x.ref === ref);
+  if (!s) throw new Error("Missing scripture " + ref);
+  return { id: uid(), type: "scripture", title: s.ref, body: s.text };
+}
+
+function wordSlide(title, body) {
+  return { id: uid(), type: "word", title: title, body: body };
+}
+
+// Next calendar Sunday after fromIso. If fromIso is already a Sunday, returns the following Sunday (+7).
+function nextSundayDate(fromIso) {
+  const d = new Date((fromIso || new Date().toISOString().slice(0, 10)) + "T12:00:00");
+  const add = d.getDay() === 0 ? 7 : (7 - d.getDay());
+  d.setDate(d.getDate() + add);
+  return d.toISOString().slice(0, 10);
+}
+
+function cloneServiceItems(items) {
+  return JSON.parse(JSON.stringify(items || [])).map((item) => {
+    item.id = uid();
+    return item;
+  });
+}
+
+function mostRecentService() {
+  const list = (state.services || []).slice();
+  if (!list.length) return null;
+  list.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.name || "").localeCompare(String(a.name || "")));
+  return list[0];
+}
+
+// Safer copy: keep the full order, songs, word slides, and run-sheet roles.
+// Only the date moves to the next Sunday; the user edits announcements etc.
+function copyLastSunday() {
+  const src = mostRecentService();
+  if (!src) return null;
+  const copy = {
+    id: uid(),
+    name: src.name || "Sunday gathering",
+    date: nextSundayDate(src.date || new Date().toISOString().slice(0, 10)),
+    items: cloneServiceItems(src.items)
+  };
+  state.services.unshift(copy);
+  state.activeId = copy.id;
+  if (src.roles) state.roles = JSON.parse(JSON.stringify(src.roles));
+  // else keep current state.roles (same team from week to week)
+  save();
+  return copy;
+}
+
+function ensureTemplates() {
+  if (!Array.isArray(state.templates)) state.templates = [];
+}
+
+function builtinTemplateDefs() {
+  return [
+    {
+      id: "builtin-communion",
+      name: "Communion Sunday",
+      builtin: true,
+      build: () => ({
+        name: "Communion Sunday",
+        items: [
+          wordSlide("Welcome", "Welcome. Today we gather at the Lord's table."),
+          wordSlide("Call to worship", "O taste and see that the Lord is good:\nblessed is the man that trusteth in him.\nPsalm 34:8"),
+          hymnByTitle("Holy, Holy, Holy"),
+          hymnByTitle("When I Survey the Wondrous Cross"),
+          wordSlide("Prayer", "Let us pray."),
+          scriptureByRef("1 Corinthians 11:23–26"),
+          wordSlide("Sermon", "In Remembrance of Me\n1 Corinthians 11"),
+          wordSlide("The Lord's Supper", "The bread and the cup.\nThis do in remembrance of me."),
+          hymnByTitle("Amazing Grace"),
+          hymnByTitle("Doxology"),
+          scriptureByRef("Numbers 6:24–26"),
+          wordSlide("Go in peace", "Thanks be to God.")
+        ],
+        roles: { greeter: "", sound: "", slides: "", prayer: "", preacher: "", notes: "Prepare the table before the service. Black the screen during the supper." }
+      })
+    },
+    {
+      id: "builtin-funeral",
+      name: "Funeral or memorial",
+      builtin: true,
+      build: () => ({
+        name: "Funeral or memorial",
+        items: [
+          wordSlide("Welcome", "We gather to remember and to commend our loved one to the Lord."),
+          hymnByTitle("Abide with Me"),
+          scriptureByRef("Psalm 23:1–6"),
+          scriptureByRef("John 14:1–3"),
+          hymnByTitle("Amazing Grace"),
+          wordSlide("Remembrance", "A time to share memories."),
+          wordSlide("Message", "Title goes here."),
+          hymnByTitle("It Is Well with My Soul"),
+          scriptureByRef("Psalm 46:1–2"),
+          scriptureByRef("Numbers 6:24–26"),
+          wordSlide("Commendation", "Into your hands, O Lord, we commend your servant.")
+        ],
+        roles: { greeter: "", sound: "", slides: "", prayer: "", preacher: "", notes: "Keep the order gentle. Black the screen during prayer." }
+      })
+    },
+    {
+      id: "builtin-holiday",
+      name: "Christmas / Easter holiday",
+      builtin: true,
+      build: () => ({
+        name: "Christmas / Easter holiday",
+        items: [
+          wordSlide("Welcome", "Welcome. Christ is born — and Christ is risen. Edit this for the day you are celebrating."),
+          wordSlide("Call to worship", "This is the day which the Lord hath made;\nwe will rejoice and be glad in it.\nPsalm 118:24"),
+          hymnByTitle("Hark! the Herald Angels Sing"),
+          hymnByTitle("Christ the Lord Is Risen Today"),
+          scriptureByRef("Luke 2:8–14"),
+          scriptureByRef("Matthew 28:1–7"),
+          wordSlide("Prayer", "Let us pray."),
+          wordSlide("Sermon", "Title goes here."),
+          hymnByTitle("Amazing Grace"),
+          hymnByTitle("Doxology"),
+          scriptureByRef("John 3:16–17"),
+          scriptureByRef("Numbers 6:24–26"),
+          wordSlide("Go in peace", "Thanks be to God. Merry Christmas — or He is risen indeed.")
+        ],
+        roles: { greeter: "", sound: "", slides: "", prayer: "", preacher: "", notes: "Remove the Christmas or Easter pieces you are not using this Sunday." }
+      })
+    }
+  ];
+}
+
+function allTemplates() {
+  ensureTemplates();
+  const user = state.templates.map((t) => ({ id: t.id, name: t.name, builtin: false }));
+  return builtinTemplateDefs().map((t) => ({ id: t.id, name: t.name, builtin: true })).concat(user);
+}
+
+function getTemplateById(id) {
+  const builtin = builtinTemplateDefs().find((t) => t.id === id);
+  if (builtin) return { id: builtin.id, name: builtin.name, builtin: true, data: builtin.build() };
+  ensureTemplates();
+  const user = state.templates.find((t) => t.id === id);
+  if (!user) return null;
+  return { id: user.id, name: user.name, builtin: false, data: JSON.parse(JSON.stringify({ name: user.name, items: user.items || [], roles: user.roles || null })) };
+}
+
+function serviceFromTemplate(templateId) {
+  const tpl = getTemplateById(templateId);
+  if (!tpl) return null;
+  const data = tpl.data;
+  const service = {
+    id: uid(),
+    name: data.name || tpl.name,
+    date: nextSundayDate(new Date().toISOString().slice(0, 10)),
+    items: cloneServiceItems(data.items)
+  };
+  state.services.unshift(service);
+  state.activeId = service.id;
+  if (data.roles) state.roles = JSON.parse(JSON.stringify(data.roles));
+  save();
+  return service;
+}
+
+function saveActiveAsTemplate(name) {
+  ensureTemplates();
+  const src = active();
+  const label = (name || src.name || "Template").trim();
+  if (!label) return null;
+  const tpl = {
+    id: uid(),
+    name: label,
+    items: cloneServiceItems(src.items),
+    roles: JSON.parse(JSON.stringify(state.roles || {}))
+  };
+  state.templates.unshift(tpl);
+  save();
+  return tpl;
+}
+
+function renameUserTemplate(id, name) {
+  ensureTemplates();
+  const tpl = state.templates.find((t) => t.id === id);
+  if (!tpl) return false;
+  const label = (name || "").trim();
+  if (!label) return false;
+  tpl.name = label;
+  save();
+  return true;
+}
+
+function deleteUserTemplate(id) {
+  ensureTemplates();
+  const before = state.templates.length;
+  state.templates = state.templates.filter((t) => t.id !== id);
+  if (state.templates.length === before) return false;
+  save();
+  return true;
+}
+
+
 const FIRST_RUN = "churchx.firstRun";
 const isFirstRun = !localStorage.getItem(KEY) && !localStorage.getItem(FIRST_RUN);
 
@@ -225,13 +459,15 @@ function load() {
     songs: [],
     usage: [],
     guests: [],
-    roles: { greeter: "", sound: "", slides: "", prayer: "", preacher: "", notes: "" }
+    roles: { greeter: "", sound: "", slides: "", prayer: "", preacher: "", notes: "" },
+    templates: []
   };
 }
 
 let state = load();
 // Older saves stored the placeholder itself; treat it as "not set yet".
 if (!state.churchName || state.churchName.trim() === "Your Church") state.churchName = "";
+ensureTemplates();
 
 // The one place the church name is read. Falls back to a placeholder
 // until the church sets it (first-run guide or the Church screen).
@@ -543,11 +779,28 @@ function planView() {
         <div class="row">
           <select id="service-pick">${options}</select>
           <button class="ghost" id="new-service">New Sunday</button>
+          <button class="ghost" id="copy-last-sunday" title="Create next Sunday from the most recent service. Keeps the order, songs, and roles.">Copy last Sunday</button>
         </div>
         <label>Service name</label>
         <input id="service-name" value="${escapeAttr(service.name)}">
         <label>Date</label>
         <input id="service-date" type="date" value="${service.date}">
+        <div class="row" style="margin-top:12px;flex-wrap:wrap">
+          <button class="ghost" id="save-as-template">Save as template</button>
+          <select id="template-pick">
+            <option value="">New from template…</option>
+            ${allTemplates().map((t) => `<option value="${escapeAttr(t.id)}">${escapeText(t.name)}${t.builtin ? " (built-in)" : ""}</option>`).join("")}
+          </select>
+          <button class="ghost" id="new-from-template">Use template</button>
+        </div>
+        <div id="template-manage" class="template-manage">
+          ${(state.templates || []).length ? `<p class="lede" style="margin-top:10px">Your templates</p>` + state.templates.map((t) => `
+            <div class="row template-row">
+              <span>${escapeText(t.name)}</span>
+              <button class="ghost" data-rename-template="${escapeAttr(t.id)}">Rename</button>
+              <button class="ghost" data-delete-template="${escapeAttr(t.id)}">Delete</button>
+            </div>`).join("") : `<p class="lede" style="font-size:13px;margin-top:8px">Built-in starters are always available. Save this Sunday as a template to reuse your own order.</p>`}
+        </div>
         <div style="margin-top:14px">${items || "<p>No items yet.</p>"}</div>
       </section>
       <section class="card">
@@ -1293,6 +1546,51 @@ function bind() {
     state.activeId = s.id;
     save(); render();
   };
+  if (byId("copy-last-sunday")) byId("copy-last-sunday").onclick = () => {
+    const copy = copyLastSunday();
+    if (!copy) {
+      fileNote = "There is no Sunday to copy yet.";
+    } else {
+      fileNote = "Copied to " + copy.date + ". Same order, songs, and roles — edit what changed this week.";
+    }
+    render();
+  };
+  if (byId("save-as-template")) byId("save-as-template").onclick = () => {
+    const name = prompt("Name for this template", active().name || "My template");
+    if (name === null) return;
+    const tpl = saveActiveAsTemplate(name);
+    fileNote = tpl ? ("Saved template “" + tpl.name + "”. It is included in Export backup.") : "Could not save that template.";
+    render();
+  };
+  if (byId("new-from-template")) byId("new-from-template").onclick = () => {
+    const id = byId("template-pick").value;
+    if (!id) return;
+    const service = serviceFromTemplate(id);
+    fileNote = service ? ("Started “" + service.name + "” for " + service.date + " from a template.") : "That template was not found.";
+    render();
+  };
+  document.querySelectorAll("[data-rename-template]").forEach((btn) => btn.onclick = () => {
+    const tpl = (state.templates || []).find((t) => t.id === btn.dataset.renameTemplate);
+    if (!tpl) return;
+    const name = prompt("Rename template", tpl.name);
+    if (name === null) return;
+    renameUserTemplate(tpl.id, name);
+    render();
+  });
+  document.querySelectorAll("[data-delete-template]").forEach((btn) => btn.onclick = () => {
+    const tpl = (state.templates || []).find((t) => t.id === btn.dataset.deleteTemplate);
+    if (!tpl) return;
+    askDialog({
+      title: "Delete template?",
+      body: ["Delete “" + tpl.name + "”? Built-in starters cannot be deleted. This only removes your saved copy."],
+      yes: "Delete",
+      no: "Cancel"
+    }, (ok) => {
+      if (!ok) return;
+      deleteUserTemplate(tpl.id);
+      render();
+    });
+  });
   if (byId("service-name")) byId("service-name").onchange = (e) => { active().name = e.target.value; save(); };
   if (byId("service-date")) byId("service-date").onchange = (e) => { active().date = e.target.value; save(); render(); };
   document.querySelectorAll("[data-del]").forEach((btn) => btn.onclick = () => { active().items.splice(+btn.dataset.del, 1); save(); render(); });
