@@ -1,4 +1,4 @@
-const CACHE = "church-x-v29";
+const CACHE = "church-x-v30";
 const FILES = [
   "./index.html",
   "./funeral/index.html",
@@ -18,6 +18,8 @@ const FILES = [
   "./styles.css",
   "./config.js",
   "./song-import.js",
+  "./bible.js",
+  "./bible/web/index.json",
   "./app.js",
   "./onboarding.js",
   "./vendor/qrcode.js",
