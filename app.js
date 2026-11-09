@@ -775,7 +775,7 @@ function planView() {
       <div class="row">
         <button class="solid" id="present">Present</button>
         <button class="ghost" id="open-stage-display">Stage display</button>
-        <button class="ghost" id="stage" title="Practice on this screen. Does not add to the CCLI log.">Rehearse</button>
+        <button class="ghost" id="rehearse" title="Practice on this screen. Does not add to the CCLI log.">Rehearse</button>
         <button class="ghost" id="export-sunday">Export Sunday</button>
         <label class="ghost file-btn">Import Sunday<input id="import-sunday" type="file" accept="application/json"></label>
       </div>
@@ -1514,7 +1514,7 @@ function bind() {
   const byId = (id) => document.getElementById(id);
   if (byId("open-wizard")) byId("open-wizard").onclick = () => openWizard(false);
   if (byId("present")) byId("present").onclick = () => startPresent();
-  if (byId("stage")) byId("stage").onclick = () => openStage(true);
+  if (byId("rehearse")) byId("rehearse").onclick = () => openStage(true);
   if (byId("export-ccli")) byId("export-ccli").onclick = () => {
     ensureUsagePeriod();
     exportCcliCsv(state.usage, state.usagePeriodStart, new Date().toISOString().slice(0, 10), "current");
