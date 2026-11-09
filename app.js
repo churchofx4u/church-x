@@ -495,6 +495,13 @@ let stageTheme = "dark"; // dark | light
 let stageClockTimer = null;
 let lowerWindow = null;
 let lowerBg = "transparent"; // transparent | green
+let preActive = false;
+let preRuntime = null; // live pre-service snapshot (also synced via LIVE)
+let preTickTimer = null;
+function stageRoot() {
+  return document.querySelector("div.stage") || document.querySelector("#stage");
+}
+
 let liveChannel = null;
 let fileNote = "";
 try { liveChannel = new BroadcastChannel("wwm-sunday"); } catch (err) { liveChannel = null; }
@@ -772,7 +779,7 @@ function planView() {
         <button class="solid" id="present">Present</button>
         <button class="ghost" id="open-stage-display">Stage display</button>
         <button class="ghost" id="open-lower-thirds" title="OBS Browser Source lower-thirds">Lower-thirds</button>
-        <button class="ghost" id="stage" title="Practice on this screen. Does not add to the CCLI log.">Rehearse</button>
+        <button class="ghost" id="rehearse" title="Practice on this screen. Does not add to the CCLI log.">Rehearse</button>
         <button class="ghost" id="export-sunday">Export Sunday</button>
         <label class="ghost file-btn">Import Sunday<input id="import-sunday" type="file" accept="application/json"></label>
       </div>
@@ -806,6 +813,7 @@ function planView() {
             </div>`).join("") : `<p class="lede" style="font-size:13px;margin-top:8px">Built-in starters are always available. Save this Sunday as a template to reuse your own order.</p>`}
         </div>
         <div style="margin-top:14px">${items || "<p>No items yet.</p>"}</div>
+        ${preserviceControlsHtml()}
       </section>
       <section class="card">
         <h3>Add to this service</h3>
@@ -822,6 +830,19 @@ function planView() {
           ${SCRIPTURES.map((s) => `<option value="${escapeAttr(s.ref)}">${s.ref}</option>`).join("")}
         </select>
         <button class="ghost" id="add-scripture" style="margin-top:10px">Add scripture</button>
+        <div class="bible-picker" style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(28,23,18,0.12)">
+          <h3 style="margin:0 0 8px">Bible (offline)</h3>
+          <p class="lede" style="font-size:13px">World English Bible — public domain. Loads on this computer only; no API keys and no licensed text (not NIV/ESV).</p>
+          <label>Book</label>
+          <select id="bible-book"><option value="">Loading books…</option></select>
+          <div class="row" style="margin-top:8px;flex-wrap:wrap">
+            <label style="margin:0">Chapter <input id="bible-chapter" type="number" min="1" value="1" style="width:72px"></label>
+            <label style="margin:0">From <input id="bible-from" type="number" min="1" value="1" style="width:72px"></label>
+            <label style="margin:0">To <input id="bible-to" type="number" min="1" value="1" style="width:72px"></label>
+          </div>
+          <button class="solid" id="add-bible" style="margin-top:10px">Add Bible slides</button>
+          <p id="bible-status" class="lede" style="font-size:13px;margin-top:8px"></p>
+        </div>
         <label>Words slide</label>
         <input id="word-title" placeholder="Welcome, prayer, sermon title">
         <textarea id="word-body" placeholder="Text for the slide"></textarea>
@@ -1486,6 +1507,7 @@ function boothView() {
           </div>
           <p class="lede" style="font-size:13px;margin-top:8px">URL: <code style="user-select:all">${escapeText(lowerThirdsUrl())}</code> · Background: ${lowerBg === "green" ? "green screen" : "transparent"}</p>
         </section>
+        ${preserviceControlsHtml()}
       </section>
       <section class="card">
         <h3>Run sheet</h3>
@@ -1525,7 +1547,7 @@ function bind() {
   const byId = (id) => document.getElementById(id);
   if (byId("open-wizard")) byId("open-wizard").onclick = () => openWizard(false);
   if (byId("present")) byId("present").onclick = () => startPresent();
-  if (byId("stage")) byId("stage").onclick = () => openStage(true);
+  if (byId("rehearse")) byId("rehearse").onclick = () => openStage(true);
   if (byId("export-ccli")) byId("export-ccli").onclick = () => {
     ensureUsagePeriod();
     exportCcliCsv(state.usage, state.usagePeriodStart, new Date().toISOString().slice(0, 10), "current");
@@ -1552,6 +1574,11 @@ function bind() {
   if (byId("open-stage-display")) byId("open-stage-display").onclick = () => { openStageDisplay(); render(); };
   if (byId("open-lower-thirds")) byId("open-lower-thirds").onclick = () => { openLowerThirds(); render(); };
   if (byId("lower-bg-toggle")) byId("lower-bg-toggle").onclick = () => { toggleLowerBg(); render(); };
+  if (byId("pre-save")) byId("pre-save").onclick = () => { savePreserviceForm(); fileNote = "Pre-service settings saved with this Sunday."; render(); };
+  if (byId("pre-start")) byId("pre-start").onclick = () => startPreservice();
+  if (byId("pre-stop")) byId("pre-stop").onclick = () => stopPreserviceAndStart();
+  if (byId("pre-extra-add")) byId("pre-extra-add").onclick = () => addPreserviceExtraSlide();
+  document.querySelectorAll("[data-pre-extra-del]").forEach((btn) => btn.onclick = () => removePreserviceExtra(btn.dataset.preExtraDel));
   if (byId("stage-message-send")) byId("stage-message-send").onclick = setStageMessageFromForm;
   if (byId("stage-message-clear")) byId("stage-message-clear").onclick = clearStageMessage;
   if (byId("stage-countdown-start")) byId("stage-countdown-start").onclick = () => {
@@ -1636,6 +1663,12 @@ function bind() {
     active().items.push({ id: uid(), type: "scripture", title, body });
     save(); render();
   };
+  if (byId("bible-book")) {
+    fillBibleBookSelect();
+    byId("bible-book").onchange = () => onBibleBookChange();
+  }
+  if (byId("bible-chapter")) byId("bible-chapter").onchange = () => onBibleChapterChange();
+  if (byId("add-bible")) byId("add-bible").onclick = () => addBiblePassage();
   if (byId("add-word")) byId("add-word").onclick = () => {
     active().items.push({ id: uid(), type: "word", title: byId("word-title").value || "Words", body: byId("word-body").value });
     save(); render();
@@ -1742,6 +1775,96 @@ function bind() {
   if (byId("undo-restore")) byId("undo-restore").onclick = restoreUndo;
 }
 
+
+function setBibleStatus(msg) {
+  const el = document.getElementById("bible-status");
+  if (el) el.textContent = msg || "";
+}
+
+function fillBibleBookSelect() {
+  const sel = document.getElementById("bible-book");
+  if (!sel || typeof WwmBible === "undefined") return;
+  WwmBible.loadIndex().then((idx) => {
+    const prev = sel.value;
+    const ot = (idx.books || []).filter((b) => b.testament === "OT");
+    const nt = (idx.books || []).filter((b) => b.testament === "NT");
+    const optGroup = (label, books) =>
+      `<optgroup label="${escapeAttr(label)}">` +
+      books.map((b) => `<option value="${escapeAttr(b.id)}">${escapeText(b.name)}</option>`).join("") +
+      `</optgroup>`;
+    sel.innerHTML = optGroup("Old Testament", ot) + optGroup("New Testament", nt);
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    else sel.value = "john";
+    onBibleBookChange();
+  }).catch((err) => {
+    sel.innerHTML = `<option value="">Bible unavailable</option>`;
+    setBibleStatus(err && err.message ? err.message : "Could not load Bible index.");
+  });
+}
+
+function onBibleBookChange() {
+  const sel = document.getElementById("bible-book");
+  const chInput = document.getElementById("bible-chapter");
+  if (!sel || !chInput || !sel.value || typeof WwmBible === "undefined") return;
+  setBibleStatus("Loading " + sel.options[sel.selectedIndex].text + "…");
+  WwmBible.loadBook(sel.value).then((pack) => {
+    chInput.max = pack.meta.chapters;
+    if (Number(chInput.value) > pack.meta.chapters) chInput.value = 1;
+    setBibleStatus(pack.meta.name + " · " + pack.meta.chapters + " chapters (WEB, offline)");
+    onBibleChapterChange();
+  }).catch((err) => setBibleStatus(err && err.message ? err.message : "Could not load that book."));
+}
+
+function onBibleChapterChange() {
+  const sel = document.getElementById("bible-book");
+  const chInput = document.getElementById("bible-chapter");
+  const fromInput = document.getElementById("bible-from");
+  const toInput = document.getElementById("bible-to");
+  if (!sel || !sel.value || typeof WwmBible === "undefined") return;
+  WwmBible.loadBook(sel.value).then((pack) => {
+    const ch = Math.max(1, Number(chInput && chInput.value) || 1);
+    const n = WwmBible.verseCount(pack.chapters, ch);
+    if (fromInput) {
+      fromInput.max = n;
+      if (Number(fromInput.value) > n) fromInput.value = 1;
+    }
+    if (toInput) {
+      toInput.max = n;
+      if (!toInput.value || Number(toInput.value) > n) toInput.value = n;
+      if (Number(toInput.value) < Number(fromInput && fromInput.value || 1)) toInput.value = fromInput.value;
+    }
+  }).catch(() => {});
+}
+
+function addBiblePassage() {
+  if (typeof WwmBible === "undefined") {
+    fileNote = "Bible module did not load.";
+    render();
+    return;
+  }
+  const bookId = (document.getElementById("bible-book") || {}).value;
+  const chapter = Number((document.getElementById("bible-chapter") || {}).value || 1);
+  let fromV = Number((document.getElementById("bible-from") || {}).value || 1);
+  let toV = Number((document.getElementById("bible-to") || {}).value || fromV);
+  if (!bookId) return;
+  if (toV < fromV) { const t = fromV; fromV = toV; toV = t; }
+  setBibleStatus("Adding…");
+  WwmBible.loadBook(bookId).then((pack) => {
+    const maxV = WwmBible.verseCount(pack.chapters, chapter);
+    fromV = Math.max(1, Math.min(fromV, maxV));
+    toV = Math.max(fromV, Math.min(toV, maxV));
+    const title = WwmBible.formatRef(pack.meta.name, chapter, fromV, toV) + " (WEB)";
+    const body = WwmBible.passageBody(pack.chapters, chapter, fromV, toV, 2);
+    active().items.push({ id: uid(), type: "scripture", title, body });
+    save();
+    fileNote = "Added " + title + " from the offline World English Bible.";
+    setView("plan");
+  }).catch((err) => {
+    fileNote = err && err.message ? err.message : "Could not add that passage.";
+    render();
+  });
+}
+
 function scriptureParts(text) {
   const blocks = String(text || "").split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
   const source = blocks.length ? blocks : [String(text || "").trim()];
@@ -1836,6 +1959,268 @@ function noteShown() {
   }
 }
 
+
+function ensurePreservice(service) {
+  if (!service.preservice) {
+    service.preservice = {
+      label: "Service starts in",
+      countdownKind: "minutes",
+      minutes: 10,
+      startTime: "10:30",
+      loopSeconds: 8,
+      selectedIds: [],
+      extraSlides: [],
+      withCountdown: true,
+      withLoop: true,
+      onZero: "first"
+    };
+  }
+  const ps = service.preservice;
+  if (!Array.isArray(ps.selectedIds)) ps.selectedIds = [];
+  if (!Array.isArray(ps.extraSlides)) ps.extraSlides = [];
+  if (!ps.label) ps.label = "Service starts in";
+  if (!ps.countdownKind) ps.countdownKind = "minutes";
+  if (!ps.onZero) ps.onZero = "first";
+  return ps;
+}
+
+function countdownEndFromClock(hhmm) {
+  const m = String(hhmm || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(m[1]), Number(m[2]), 0, 0);
+  if (end.getTime() <= now.getTime()) end.setDate(end.getDate() + 1);
+  return end.getTime();
+}
+
+function resolveLoopSlides(service) {
+  const ps = ensurePreservice(service);
+  const selected = new Set(ps.selectedIds || []);
+  const fromItems = (service.items || [])
+    .filter((it) => selected.has(it.id) && (it.type === "word" || it.type === "scripture" || it.type === "hymn"))
+    .map((it) => ({ title: it.title || "", body: it.body || (Array.isArray(it.verses) ? (typeof it.verses[0] === "string" ? it.verses[0] : (it.verses[0] && it.verses[0].body) || "") : "") }));
+  const extras = (ps.extraSlides || []).map((s) => ({ title: s.title || "Announcement", body: s.body || "" }));
+  return fromItems.concat(extras).filter((s) => (s.title || s.body));
+}
+
+function savePreserviceForm() {
+  const service = active();
+  const ps = ensurePreservice(service);
+  const byId = (id) => document.getElementById(id);
+  if (byId("pre-label")) ps.label = byId("pre-label").value.trim() || "Service starts in";
+  if (byId("pre-kind")) ps.countdownKind = byId("pre-kind").value === "clock" ? "clock" : "minutes";
+  if (byId("pre-minutes")) ps.minutes = Math.max(1, Number(byId("pre-minutes").value) || 10);
+  if (byId("pre-start-time")) ps.startTime = byId("pre-start-time").value || "10:30";
+  if (byId("pre-loop-seconds")) ps.loopSeconds = Math.max(3, Number(byId("pre-loop-seconds").value) || 8);
+  if (byId("pre-on-zero")) ps.onZero = byId("pre-on-zero").value === "welcome" ? "welcome" : "first";
+  ps.withCountdown = !!(byId("pre-with-countdown") && byId("pre-with-countdown").checked);
+  ps.withLoop = !!(byId("pre-with-loop") && byId("pre-with-loop").checked);
+  ps.selectedIds = Array.from(document.querySelectorAll("[data-pre-item]:checked")).map((el) => el.value);
+  const et = byId("pre-extra-title");
+  const eb = byId("pre-extra-body");
+  // extras managed by add button; keep existing
+  save();
+  return ps;
+}
+
+function addPreserviceExtraSlide() {
+  const service = active();
+  const ps = ensurePreservice(service);
+  const title = (document.getElementById("pre-extra-title") || {}).value || "";
+  const body = (document.getElementById("pre-extra-body") || {}).value || "";
+  if (!title.trim() && !body.trim()) return;
+  ps.extraSlides.push({ id: uid(), title: title.trim() || "Announcement", body: body.trim() });
+  const et = document.getElementById("pre-extra-title");
+  const eb = document.getElementById("pre-extra-body");
+  if (et) et.value = "";
+  if (eb) eb.value = "";
+  save();
+  render();
+}
+
+function removePreserviceExtra(id) {
+  const ps = ensurePreservice(active());
+  ps.extraSlides = (ps.extraSlides || []).filter((s) => s.id !== id);
+  save();
+  render();
+}
+
+function startPreservice() {
+  const service = active();
+  const ps = savePreserviceForm();
+  if (!ps.withCountdown && !ps.withLoop) {
+    fileNote = "Turn on the countdown, the announcement loop, or both.";
+    render();
+    return;
+  }
+  const slides = ps.withLoop ? resolveLoopSlides(service) : [];
+  if (ps.withLoop && !slides.length) {
+    fileNote = "Pick at least one announcement slide for the loop, or add one below.";
+    render();
+    return;
+  }
+  let endAt = null;
+  if (ps.withCountdown) {
+    endAt = ps.countdownKind === "clock"
+      ? countdownEndFromClock(ps.startTime)
+      : Date.now() + Math.round((ps.minutes || 10) * 60 * 1000);
+    if (!endAt) {
+      fileNote = "Enter a valid start time like 10:30.";
+      render();
+      return;
+    }
+  }
+  preActive = true;
+  preRuntime = {
+    label: ps.label || "Service starts in",
+    withCountdown: !!ps.withCountdown,
+    withLoop: !!ps.withLoop,
+    countdownEnd: endAt,
+    loopSeconds: ps.loopSeconds || 8,
+    loopIndex: 0,
+    loopLastAdvance: Date.now(),
+    slides: slides,
+    onZero: ps.onZero === "welcome" ? "welcome" : "first",
+    serviceId: service.id
+  };
+  black = false;
+  titleCard = false;
+  publishLive();
+  startPreTick();
+  if (!houseWindow || houseWindow.closed) {
+    houseWindow = window.open("./index.html?screen=house", "wwm-house");
+  }
+  fileNote = "Pre-service running on the projector.";
+  if (view !== "booth") setView("booth");
+  else render();
+}
+
+function stopPreserviceAndStart(forceOnZero) {
+  const onZero = forceOnZero || (preRuntime && preRuntime.onZero) || "first";
+  preActive = false;
+  preRuntime = null;
+  stopPreTick();
+  black = false;
+  titleCard = onZero === "welcome";
+  slideIndex = 0;
+  publishLive();
+  if (isHouse || (stageRoot() && stageRoot().classList.contains("on"))) paintSlide();
+  if (isStage) paintStageDisplay();
+  fileNote = onZero === "welcome" ? "Pre-service ended — showing Welcome." : "Pre-service ended — first service slide.";
+  if (!isHouse && !isStage) render();
+}
+
+function stopPreTick() {
+  if (preTickTimer) { clearInterval(preTickTimer); preTickTimer = null; }
+}
+
+function startPreTick() {
+  stopPreTick();
+  preTickTimer = setInterval(tickPreservice, 250);
+}
+
+function tickPreservice() {
+  if (!preActive || !preRuntime) return;
+  let changed = false;
+  if (preRuntime.withLoop && preRuntime.slides && preRuntime.slides.length) {
+    const now = Date.now();
+    if (now - (preRuntime.loopLastAdvance || 0) >= (preRuntime.loopSeconds || 8) * 1000) {
+      preRuntime.loopIndex = ((preRuntime.loopIndex || 0) + 1) % preRuntime.slides.length;
+      preRuntime.loopLastAdvance = now;
+      changed = true;
+    }
+  }
+  if (preRuntime.withCountdown && preRuntime.countdownEnd && Date.now() >= preRuntime.countdownEnd) {
+    // Only the operator window finishes; house/stage just display until sync
+    if (!isHouse && !isStage) stopPreserviceAndStart(preRuntime.onZero);
+    else {
+      paintSlide();
+      if (isStage) paintStageDisplay();
+    }
+    return;
+  }
+  if (changed && !isHouse && !isStage) publishLive();
+  if (isHouse || (stageRoot() && stageRoot().classList.contains("on"))) paintSlide();
+  if (isStage) paintStageDisplay();
+}
+
+function paintPreserviceScreen(screen) {
+  if (!screen || !preRuntime) return;
+  const slides = preRuntime.slides || [];
+  const slide = slides.length ? slides[(preRuntime.loopIndex || 0) % slides.length] : null;
+  const left = preRuntime.withCountdown && preRuntime.countdownEnd
+    ? Math.max(0, preRuntime.countdownEnd - Date.now())
+    : null;
+  const cd = left === null ? "" : formatCountdown(left);
+  let html = "";
+  if (preRuntime.withLoop && slide) {
+    html += `<div class="kicker">${escapeText(slide.title || "Announcement")}</div>`;
+    html += `<h2 class="pre-announce-body">${escapeText(slide.body || "")}</h2>`;
+  } else if (preRuntime.withCountdown) {
+    html += `<div class="kicker">${escapeText(preRuntime.label || "Service starts in")}</div>`;
+    html += `<h2 class="pre-countdown-big">${escapeText(cd)}</h2>`;
+  }
+  if (preRuntime.withCountdown && preRuntime.withLoop) {
+    html += `<div class="pre-countdown-corner"><span>${escapeText(preRuntime.label || "")}</span><strong>${escapeText(cd)}</strong></div>`;
+  }
+  screen.innerHTML = html || `<div class="kicker">Pre-service</div><h2>…</h2>`;
+}
+
+function preserviceControlsHtml() {
+  const service = active();
+  const ps = ensurePreservice(service);
+  const wordItems = (service.items || []).filter((it) => it.type === "word" || /announce/i.test(it.title || ""));
+  const picks = wordItems.map((it) => {
+    const checked = ps.selectedIds.includes(it.id) || (/announce/i.test(it.title || "") && !ps.selectedIds.length);
+    return `<label class="pre-pick"><input type="checkbox" data-pre-item value="${escapeAttr(it.id)}" ${checked ? "checked" : ""}> ${escapeText(it.title || "Untitled")}</label>`;
+  }).join("") || `<p class="lede">No word slides yet. Add announcements on Sunday, or use the extra slide fields below.</p>`;
+  const extras = (ps.extraSlides || []).map((s) => `
+    <div class="row template-row">
+      <span>${escapeText(s.title)}</span>
+      <button type="button" class="ghost" data-pre-extra-del="${escapeAttr(s.id)}">Remove</button>
+    </div>`).join("");
+  const running = preActive ? `<p class="lede"><strong>Running now.</strong> Projector shows the loop/countdown.</p>
+    <button class="solid" id="pre-stop">Stop loop / start service</button>` : "";
+  return `
+    <section class="card pre-service-card" style="margin-top:14px">
+      <h3>Pre-service</h3>
+      <p class="lede">Countdown and/or looping announcements on the projector before you start. Saved with this Sunday and included in backups.</p>
+      ${running}
+      <label>Countdown label</label>
+      <input id="pre-label" value="${escapeAttr(ps.label)}">
+      <label>Countdown</label>
+      <select id="pre-kind">
+        <option value="minutes" ${ps.countdownKind !== "clock" ? "selected" : ""}>For N minutes</option>
+        <option value="clock" ${ps.countdownKind === "clock" ? "selected" : ""}>Until a clock time</option>
+      </select>
+      <div class="row" style="margin-top:8px">
+        <label style="margin:0">Minutes <input id="pre-minutes" type="number" min="1" max="180" value="${escapeAttr(ps.minutes || 10)}" style="width:80px"></label>
+        <label style="margin:0">Start time <input id="pre-start-time" type="time" value="${escapeAttr(ps.startTime || "10:30")}"></label>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="pre-with-countdown" style="width:auto" ${ps.withCountdown !== false ? "checked" : ""}> Show countdown</label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pre-with-loop" style="width:auto" ${ps.withLoop !== false ? "checked" : ""}> Loop announcements</label>
+      <label>Seconds per announcement</label>
+      <input id="pre-loop-seconds" type="number" min="3" max="120" value="${escapeAttr(ps.loopSeconds || 8)}" style="max-width:100px">
+      <label>When countdown hits zero</label>
+      <select id="pre-on-zero">
+        <option value="first" ${ps.onZero !== "welcome" ? "selected" : ""}>Show first service slide</option>
+        <option value="welcome" ${ps.onZero === "welcome" ? "selected" : ""}>Show Welcome (title card)</option>
+      </select>
+      <h3 style="margin-top:16px">Announcement loop</h3>
+      <p class="lede">Pick word slides from this Sunday:</p>
+      <div class="pre-picks">${picks}</div>
+      <label>Extra loop slide (optional)</label>
+      <input id="pre-extra-title" placeholder="Title">
+      <textarea id="pre-extra-body" placeholder="Announcement text"></textarea>
+      <button type="button" class="ghost" id="pre-extra-add" style="margin-top:8px">Add to loop list</button>
+      ${extras ? `<div style="margin-top:10px">${extras}</div>` : ""}
+      <div class="row" style="margin-top:14px">
+        <button type="button" class="ghost" id="pre-save">Save settings</button>
+        <button type="button" class="solid" id="pre-start">${preActive ? "Restart pre-service" : "Start pre-service"}</button>
+      </div>
+    </section>`;
+}
+
 function publishLive() {
   localStorage.setItem(LIVE, JSON.stringify({
     slideIndex,
@@ -1845,7 +2230,20 @@ function publishLive() {
     stageMessage: stageMessage || "",
     countdownEnd: countdownEnd || null,
     stageTheme: stageTheme === "light" ? "light" : "dark",
-    lowerBg: lowerBg === "green" ? "green" : "transparent"
+    lowerBg: lowerBg === "green" ? "green" : "transparent",
+    preservice: preActive && preRuntime ? {
+      active: true,
+      label: preRuntime.label,
+      withCountdown: !!preRuntime.withCountdown,
+      withLoop: !!preRuntime.withLoop,
+      countdownEnd: preRuntime.countdownEnd || null,
+      loopSeconds: preRuntime.loopSeconds || 8,
+      loopIndex: preRuntime.loopIndex || 0,
+      loopLastAdvance: preRuntime.loopLastAdvance || Date.now(),
+      slides: preRuntime.slides || [],
+      onZero: preRuntime.onZero || "first",
+      serviceId: preRuntime.serviceId || state.activeId
+    } : null
   }));
   if (liveChannel) liveChannel.postMessage({ type: "live" });
 }
@@ -1864,6 +2262,14 @@ function applyLive() {
     countdownEnd = live.countdownEnd || null;
     if (live.stageTheme === "light" || live.stageTheme === "dark") stageTheme = live.stageTheme;
     if (live.lowerBg === "green" || live.lowerBg === "transparent") lowerBg = live.lowerBg;
+    if (live.preservice && live.preservice.active) {
+      preActive = true;
+      preRuntime = live.preservice;
+      startPreTick();
+    } else if (isHouse || isStage) {
+      preActive = false;
+      preRuntime = null;
+    }
   }
   showNotes = false;
   if (isLower) paintLowerThirds();
@@ -1904,20 +2310,33 @@ function paintStageDisplay() {
   const themeBtn = document.getElementById("sd-theme-toggle");
   if (themeBtn) themeBtn.textContent = stageTheme === "light" ? "Dark mode" : "Light mode";
 
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text || ""; };
+  if (preActive && preRuntime) {
+    const slides = preRuntime.slides || [];
+    const slide = slides.length ? slides[(preRuntime.loopIndex || 0) % slides.length] : null;
+    const left = preRuntime.withCountdown && preRuntime.countdownEnd ? Math.max(0, preRuntime.countdownEnd - Date.now()) : null;
+    set("sd-cur-kicker", preRuntime.withLoop && slide ? (slide.title || "Announcement") : (preRuntime.label || "Pre-service"));
+    set("sd-cur-title", preRuntime.withLoop && slide ? (slide.body || slide.title || "") : (left === null ? "Pre-service" : formatCountdown(left)));
+    set("sd-cur-body", preRuntime.withCountdown && preRuntime.withLoop && left !== null
+      ? ((preRuntime.label || "Service starts in") + "  " + formatCountdown(left))
+      : "");
+    set("sd-next-kicker", "Pre-service");
+    set("sd-next-title", preRuntime.withLoop ? "Announcement loop" : "Countdown");
+    set("sd-next-body", "Stop from the laptop when ready.");
+  } else {
   const slides = slidesFor(active());
   const index = Math.max(0, Math.min(slideIndex, Math.max(0, slides.length - 1)));
   const current = titleCard
     ? { kicker: "Title", title: churchName(), body: active().name }
     : (black ? { kicker: "", title: "", body: "" } : slidePlain(slides[index]));
   const next = black || titleCard ? null : slidePlain(slides[index + 1]);
-
-  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text || ""; };
   set("sd-cur-kicker", current.kicker);
   set("sd-cur-title", current.title);
   set("sd-cur-body", current.body);
   set("sd-next-kicker", next ? next.kicker : "");
   set("sd-next-title", next ? next.title : "End");
   set("sd-next-body", next ? next.body : "");
+  }
 
   const msg = document.getElementById("sd-message");
   if (msg) {
@@ -2205,7 +2624,23 @@ function notifyUse(kind, detail) {
 }
 
 function paintSlide() {
-  const stage = document.querySelector("#stage");
+  const stage = stageRoot();
+  const screen = document.querySelector("#screen");
+  if (!stage || !screen) return;
+  if (preActive && preRuntime) {
+    stage.className = "stage on " + state.theme + " " + state.size + " pre-service-on";
+    const badge = document.querySelector("#rehearse-badge");
+    if (badge) badge.classList.add("hidden");
+    screen.style.backgroundImage = "";
+    screen.classList.remove("has-photo", "is-credit");
+    applyBackground(screen);
+    paintPreserviceScreen(screen);
+    const pos = document.querySelector("#pos");
+    if (pos) pos.textContent = "Pre-service";
+    const notes = document.querySelector("#notes");
+    if (notes) notes.innerHTML = "<b>Pre-service</b><div>Loop / countdown on the projector</div>";
+    return;
+  }
   const slides = slidesFor(active());
   if (!slides.length) return;
   slideIndex = Math.max(0, Math.min(slideIndex, slides.length - 1));
@@ -2215,7 +2650,6 @@ function paintSlide() {
   stage.className = "stage on " + state.theme + " " + state.size + (!isHouse && showNotes ? " stage-notes" : "");
   const badge = document.querySelector("#rehearse-badge");
   if (badge) badge.classList.toggle("hidden", !(!isHouse && showNotes && !countingUsage));
-  const screen = document.querySelector("#screen");
   screen.style.backgroundImage = "";
   screen.classList.remove("has-photo", "is-credit");
   if (!black && slide.kind === "credit") screen.classList.add("is-credit");

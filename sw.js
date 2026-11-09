@@ -18,6 +18,8 @@ const FILES = [
   "./styles.css",
   "./config.js",
   "./song-import.js",
+  "./bible.js",
+  "./bible/web/index.json",
   "./app.js",
   "./onboarding.js",
   "./vendor/qrcode.js",

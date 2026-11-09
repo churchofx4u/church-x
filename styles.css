@@ -605,3 +605,16 @@ body.lower-thirds-mode .lt-controls .ghost {
   color: #f6f1e7;
   border-color: rgba(246,241,231,0.35);
 }
+.pre-service-card .pre-picks { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.pre-pick { display: flex; gap: 8px; align-items: center; font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.pre-countdown-corner {
+  position: absolute; right: 28px; bottom: 28px;
+  background: rgba(12,11,10,0.78); color: #f6f1e7;
+  border: 1px solid rgba(196,163,106,0.5); border-radius: 14px;
+  padding: 14px 18px; text-align: right; min-width: 160px;
+}
+.pre-countdown-corner span { display: block; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; margin-bottom: 4px; }
+.pre-countdown-corner strong { font-size: clamp(28px, 5vw, 48px); font-variant-numeric: tabular-nums; }
+.pre-countdown-big { font-size: clamp(64px, 14vw, 140px) !important; font-variant-numeric: tabular-nums; }
+.pre-announce-body { white-space: pre-wrap; font-size: clamp(28px, 5vw, 52px) !important; max-width: 22ch; }
+.stage.pre-service-on #screen { position: relative; }
