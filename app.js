@@ -246,6 +246,7 @@ let slideIndex = 0;
 let black = false;
 let titleCard = false;
 let showNotes = false;
+let countingUsage = false; // true only during a real Present run; Rehearse stays false
 let logged = new Set();
 let houseWindow = null;
 let liveChannel = null;
@@ -472,6 +473,7 @@ function setView(next) {
 }
 
 function render() {
+  ensureUsagePeriod();
   const root = document.querySelector("#view");
   const nav = document.querySelectorAll("nav button");
   nav.forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
@@ -518,11 +520,11 @@ function planView() {
     <div class="top">
       <div>
         <h1>Sunday</h1>
-        <p class="lede">Build the order here. Present opens the lyrics on the projector and leaves this laptop on the run sheet. <a href="./for-churches.html">For another church</a></p>
+        <p class="lede">Build the order here. Present opens the lyrics on the projector and leaves this laptop on the run sheet. Rehearse practices here without counting for CCLI. <a href="./for-churches.html">For another church</a></p>
       </div>
       <div class="row">
         <button class="solid" id="present">Present</button>
-        <button class="ghost" id="stage">Rehearse</button>
+        <button class="ghost" id="stage" title="Practice on this screen. Does not add to the CCLI log.">Rehearse</button>
         <button class="ghost" id="export-sunday">Export Sunday</button>
         <label class="ghost file-btn">Import Sunday<input id="import-sunday" type="file" accept="application/json"></label>
       </div>
@@ -901,28 +903,125 @@ function peopleView() {
     </div>`;
 }
 
-function reportView() {
+
+function ensureUsagePeriod() {
+  if (!Array.isArray(state.usage)) state.usage = [];
+  if (!Array.isArray(state.usagePeriods)) state.usagePeriods = [];
+  if (!state.usagePeriodStart) {
+    const times = state.usage.map((u) => u.at).filter(Boolean);
+    state.usagePeriodStart = times.length
+      ? new Date(Math.min(...times)).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+  }
+}
+
+function formatPeriodDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso + (String(iso).length === 10 ? "T12:00:00" : ""));
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function usageCounts(entries) {
   const counts = {};
-  state.usage.forEach((u) => {
-    const key = u.title + "|" + (u.ccli || "pd");
-    counts[key] = counts[key] || { ...u, count: 0 };
+  (entries || []).forEach((u) => {
+    const key = u.title + "|" + (u.ccli || (u.pd ? "pd" : "missing"));
+    if (!counts[key]) counts[key] = { title: u.title, author: u.author || "", ccli: u.ccli || "", pd: !!u.pd, count: 0, dates: [] };
     counts[key].count += 1;
+    if (u.at) {
+      const day = new Date(u.at).toISOString().slice(0, 10);
+      if (!counts[key].dates.includes(day)) counts[key].dates.push(day);
+    }
   });
-  const rows = Object.values(counts).map((u) => `
+  Object.values(counts).forEach((u) => u.dates.sort());
+  return Object.values(counts).sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function exportCcliCsv(entries, periodStart, periodEnd, label) {
+  const rows = usageCounts(entries);
+  const header = "Title,CCLI Song Number,Authors,Times Used,Dates";
+  const lines = rows.map((u) => [
+    u.title,
+    u.pd ? "" : (u.ccli || ""),
+    u.author || "",
+    u.count,
+    u.dates.join("; ")
+  ].map(csv).join(","));
+  const start = periodStart || "period";
+  const end = periodEnd || new Date().toISOString().slice(0, 10);
+  const name = "ccli-report-" + (label || start) + "-to-" + end + ".csv";
+  download(name, [header, ...lines].join("\n"));
+}
+
+function startNewUsagePeriod() {
+  ensureUsagePeriod();
+  const n = (state.usage || []).length;
+  const start = state.usagePeriodStart;
+  askDialog({
+    title: "Start a new CCLI period?",
+    body: [
+      "The current period started " + formatPeriodDate(start) + " and has " + n + " song " + (n === 1 ? "entry" : "entries") + ".",
+      "It will be archived so you can still export it later. The live log will start empty from today."
+    ],
+    yes: "Start new period",
+    no: "Cancel"
+  }, (ok) => {
+    if (!ok) return;
+    const today = new Date().toISOString().slice(0, 10);
+    state.usagePeriods.push({
+      id: uid(),
+      start: start,
+      end: today,
+      usage: (state.usage || []).slice()
+    });
+    state.usage = [];
+    state.usagePeriodStart = today;
+    save();
+    render();
+  });
+}
+
+function reportView() {
+  ensureUsagePeriod();
+  const rows = usageCounts(state.usage).map((u) => `
     <tr>
       <td>${escapeText(u.title)}</td>
       <td>${escapeText(u.author || "")}</td>
       <td>${u.pd ? "Public domain" : escapeText(u.ccli || "missing")}</td>
       <td>${u.count}</td>
+      <td>${escapeText(u.dates.map(formatPeriodDate).join(", ") || "—")}</td>
     </tr>`).join("");
+  const past = (state.usagePeriods || []).slice().reverse().map((period) => {
+    const n = usageCounts(period.usage).length;
+    return `
+      <div class="period-card card">
+        <h3>${escapeText(formatPeriodDate(period.start))} – ${escapeText(formatPeriodDate(period.end))}</h3>
+        <p class="lede">${n} song${n === 1 ? "" : "s"} · ${(period.usage || []).length} entries</p>
+        <button class="ghost" data-export-period="${escapeAttr(period.id)}">Export CCLI report (CSV)</button>
+      </div>`;
+  }).join("");
   return `
-    <div class="top"><div><h1>CCLI log</h1><p class="lede">A song is counted once each time you present the service and show it. Copy this into the church's CCLI report. Public-domain hymns do not need a number.</p></div><button class="ghost" onclick="window.print()">Print</button></div>
+    <div class="top">
+      <div>
+        <h1>CCLI log</h1>
+        <p class="lede">A song is counted once each time you <b>Present</b> and show it. Rehearse never counts. Export the CSV for the church's CCLI report. Public-domain hymns do not need a number.</p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="export-ccli">Export CCLI report (CSV)</button>
+        <button class="ghost" onclick="window.print()">Print</button>
+      </div>
+    </div>
+    <div class="period-bar card">
+      <p class="lede"><strong>Current period</strong> started ${escapeText(formatPeriodDate(state.usagePeriodStart))}.</p>
+      <button class="ghost" id="new-ccli-period">Start new period</button>
+    </div>
     <section class="card">
       <table>
-        <thead><tr><th>Song</th><th>Author</th><th>CCLI</th><th>Times shown</th></tr></thead>
-        <tbody>${rows || "<tr><td colspan='4'>Present a service to start the log.</td></tr>"}</tbody>
+        <thead><tr><th>Song</th><th>Author</th><th>CCLI</th><th>Times shown</th><th>Dates</th></tr></thead>
+        <tbody>${rows || "<tr><td colspan='5'>Present a service to start the log. Rehearse does not add songs here.</td></tr>"}</tbody>
       </table>
-    </section>`;
+    </section>
+    ${past ? `<div style="margin-top:22px"><h2>Past periods</h2><p class="lede">Archived when you started a new period. Still exportable.</p>${past}</div>` : ""}`;
 }
 
 // QR drawn locally by vendor/qrcode.js (MIT, Kazuhiko Arase), so it works offline.
@@ -1026,7 +1125,7 @@ function helpView() {
         <p>2. On Sunday, add the hymns, scripture, and words. Export Sunday if you built it on another computer, then Import Sunday at the building.</p>
         <p>3. Press Present. Allow the popup. Drag that window onto the projector and make it full screen. This laptop stays on the run sheet.</p>
         <p>4. Next, Back, the arrow keys, or the space bar move the slides. B blacks the screen. T shows the church name. Esc returns to the order.</p>
-        <p>Rehearse uses this screen only, with stage notes in the corner, when you do not have a second display.</p>
+        <p>Rehearse uses this screen only, with stage notes in the corner, when you do not have a second display. Rehearse never adds songs to the CCLI log.</p>
         <button class="ghost" id="open-wizard">Run the setup guide again</button>
       </section>
       <section class="card">
@@ -1128,6 +1227,16 @@ function bind() {
   if (byId("open-wizard")) byId("open-wizard").onclick = () => openWizard(false);
   if (byId("present")) byId("present").onclick = () => startPresent();
   if (byId("stage")) byId("stage").onclick = () => openStage(true);
+  if (byId("export-ccli")) byId("export-ccli").onclick = () => {
+    ensureUsagePeriod();
+    exportCcliCsv(state.usage, state.usagePeriodStart, new Date().toISOString().slice(0, 10), "current");
+  };
+  if (byId("new-ccli-period")) byId("new-ccli-period").onclick = startNewUsagePeriod;
+  document.querySelectorAll("[data-export-period]").forEach((btn) => btn.onclick = () => {
+    const period = (state.usagePeriods || []).find((p) => p.id === btn.dataset.exportPeriod);
+    if (!period) return;
+    exportCcliCsv(period.usage, period.start, period.end, period.start);
+  });
   if (byId("export-sunday")) byId("export-sunday").onclick = exportSunday;
   if (byId("backup-now")) byId("backup-now").onclick = exportSunday;
   if (byId("backup-later")) byId("backup-later").onclick = () => {
@@ -1320,6 +1429,7 @@ function startPresent() {
   black = false;
   titleCard = false;
   showNotes = false;
+  countingUsage = true;
   logged = new Set();
   publishLive();
   houseWindow = window.open("./index.html?screen=house", "wwm-house");
@@ -1363,8 +1473,10 @@ function step(dir) {
 function noteShown() {
   const slides = slidesFor(active());
   const slide = slides[slideIndex];
-  if (!isHouse && slide && slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
+  if (!countingUsage || isHouse) return;
+  if (slide && slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
     logged.add(slide.item.id);
+    ensureUsagePeriod();
     state.usage.push({ title: slide.item.title, author: slide.item.author || "", ccli: slide.item.ccli || "", pd: !!slide.item.pd, at: Date.now() });
     save();
   }
@@ -1500,8 +1612,11 @@ function openStage(notes) {
   black = false;
   titleCard = false;
   showNotes = notes;
+  countingUsage = false; // Rehearse must never feed the CCLI log
   logged = new Set();
   document.querySelector("#stage").classList.add("on");
+  const badge = document.querySelector("#rehearse-badge");
+  if (badge) badge.classList.toggle("hidden", !notes);
   noteShown();
   paintSlide();
 }
@@ -1531,6 +1646,8 @@ function paintSlide() {
     ? { kind: "title", title: churchName(), body: active().name, kicker: "Worship With Me" }
     : slides[slideIndex];
   stage.className = "stage on " + state.theme + " " + state.size + (!isHouse && showNotes ? " stage-notes" : "");
+  const badge = document.querySelector("#rehearse-badge");
+  if (badge) badge.classList.toggle("hidden", !(!isHouse && showNotes && !countingUsage));
   const screen = document.querySelector("#screen");
   screen.style.backgroundImage = "";
   screen.classList.remove("has-photo", "is-credit");
@@ -1633,7 +1750,11 @@ document.addEventListener("keydown", (e) => {
   if (view === "booth") render();
 });
 
-document.querySelector("#exit-stage").onclick = () => document.querySelector("#stage").classList.remove("on");
+document.querySelector("#exit-stage").onclick = () => {
+  document.querySelector("#stage").classList.remove("on");
+  const badge = document.querySelector("#rehearse-badge");
+  if (badge) badge.classList.add("hidden");
+};
 
 if (!isHouse && typeof wwmGoatLoad === "function") wwmGoatLoad();
 
