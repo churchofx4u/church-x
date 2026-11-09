@@ -25,7 +25,7 @@
 // nothing is counted. No API key. Optional: in GoatCounter settings, tick
 // "Ignore visits from …" / "Don't track me" so your own visits are skipped.
 window.WWM_CONFIG = {
-  goatcounterCode: "", // PLACEHOLDER: paste site code (e.g. "churchx") to turn counting on
+  goatcounterCode: "churchx", // GoatCounter site: https://churchx.goatcounter.com
   donateEnabled: false,
   donateStripeUrl: "https://buy.stripe.com/6oU28r9TXczncYq4AYdby03", // verified: one-time, customer chooses amount
   billingEnabled: false,
