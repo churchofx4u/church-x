@@ -39,6 +39,8 @@ node test/song-import-test.js
 
 ## GitHub Actions
 
+The workflow file lives at `docs/github-actions-tests.yml` until it can be copied to `.github/workflows/tests.yml` (creating `.github/workflows/*.yml` needs the GitHub `workflow` OAuth scope).
+
 On every pull request and every push to `main`, GitHub runs the same suite. If it fails, the HTML report is uploaded as an artifact named `playwright-report`.
 
 ## Notes for people changing the app
