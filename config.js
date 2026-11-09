@@ -32,7 +32,15 @@ window.WWM_CONFIG = {
   stripe: {
     monthly: { label: "$9 a month", url: "https://buy.stripe.com/00wfZh9TX8j72jM3wUdby00" }, // verified: $9.00 per month
     yearly: { label: "$79 a year", url: "https://buy.stripe.com/7sY3cv1nr6aZ7E6gjGdby01" }  // verified: $79.00 per year
-  }
+  },
+  // Phone remote (Supabase Realtime broadcast). OFF by default.
+  // Church X: create a free Supabase project, enable Realtime, paste the project
+  // URL and anon/publishable key below, then set remoteEnabled: true.
+  // Leave empty / false → vendor/supabase.js is never loaded and no Supabase
+  // network calls are made. Never put a service_role / secret key here.
+  remoteEnabled: false,
+  supabaseUrl: "",
+  supabaseAnonKey: ""
 };
 
 window.wwmSupportHref = function () {
@@ -49,6 +57,18 @@ window.wwmBillingLinks = function () {
   const c = window.WWM_CONFIG || {};
   if (!c.billingEnabled || !c.stripe) return [];
   return [c.stripe.monthly, c.stripe.yearly].filter((p) => p && /^https:\/\/buy\.stripe\.com\//.test(p.url));
+};
+
+// True only when phone remote is opted in AND credentials are present.
+window.wwmRemoteConfigured = function () {
+  const c = window.WWM_CONFIG || {};
+  if (!c.remoteEnabled) return false;
+  const url = String(c.supabaseUrl || "").trim().replace(/\/$/, "");
+  const key = String(c.supabaseAnonKey || "").trim();
+  if (!/^https:\/\/[a-z0-9.-]+\.supabase\.co$/i.test(url)) return false;
+  if (!key || key.length < 20) return false;
+  if (/service_role|sb_secret_/i.test(key)) return false;
+  return true;
 };
 
 // Load GoatCounter only when a site code is set. Safe to call more than once.

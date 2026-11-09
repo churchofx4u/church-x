@@ -1,4 +1,4 @@
-const CACHE = "church-x-v31";
+const CACHE = "church-x-v32";
 const FILES = [
   "./index.html",
   "./funeral/index.html",
@@ -18,6 +18,8 @@ const FILES = [
   "./styles.css",
   "./config.js",
   "./song-import.js",
+  "./remote.js",
+  "./vendor/supabase.js",
   "./bible.js",
   "./bible/web/index.json",
   "./app.js",
@@ -66,7 +68,7 @@ self.addEventListener("fetch", (event) => {
       caches.open(CACHE).then((cache) => cache.put(event.request, copy));
       return response;
     }).catch(() => {
-      if (url.pathname.endsWith("index.html") || url.search.includes("screen=house") || url.search.includes("screen=stage") || url.search.includes("screen=lower")) return caches.match("./index.html");
+      if (url.pathname.endsWith("index.html") || url.search.includes("screen=house") || url.search.includes("screen=stage") || url.search.includes("screen=remote") || url.search.includes("screen=lower")) return caches.match("./index.html");
       return caches.match(event.request);
     })
   );

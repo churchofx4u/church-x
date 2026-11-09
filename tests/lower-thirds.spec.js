@@ -4,9 +4,9 @@ const { fixtureState, seedAndGoto, uid } = require("./helpers");
 const LIVE = "churchx.live";
 
 test.describe("Livestream lower-thirds (OBS)", () => {
-  test("service worker cache is v31 and offline fallback includes screen=lower", async ({ request }) => {
+  test("service worker cache is v32 and offline fallback includes screen=lower", async ({ request }) => {
     const body = await (await request.get("/sw.js")).text();
-    expect(body).toContain("church-x-v31");
+    expect(body).toContain("church-x-v32");
     expect(body).toContain("screen=lower");
   });
 
