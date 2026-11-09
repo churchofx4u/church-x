@@ -818,6 +818,19 @@ function planView() {
           ${SCRIPTURES.map((s) => `<option value="${escapeAttr(s.ref)}">${s.ref}</option>`).join("")}
         </select>
         <button class="ghost" id="add-scripture" style="margin-top:10px">Add scripture</button>
+        <div class="bible-picker" style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(28,23,18,0.12)">
+          <h3 style="margin:0 0 8px">Bible (offline)</h3>
+          <p class="lede" style="font-size:13px">World English Bible — public domain. Loads on this computer only; no API keys and no licensed text (not NIV/ESV).</p>
+          <label>Book</label>
+          <select id="bible-book"><option value="">Loading books…</option></select>
+          <div class="row" style="margin-top:8px;flex-wrap:wrap">
+            <label style="margin:0">Chapter <input id="bible-chapter" type="number" min="1" value="1" style="width:72px"></label>
+            <label style="margin:0">From <input id="bible-from" type="number" min="1" value="1" style="width:72px"></label>
+            <label style="margin:0">To <input id="bible-to" type="number" min="1" value="1" style="width:72px"></label>
+          </div>
+          <button class="solid" id="add-bible" style="margin-top:10px">Add Bible slides</button>
+          <p id="bible-status" class="lede" style="font-size:13px;margin-top:8px"></p>
+        </div>
         <label>Words slide</label>
         <input id="word-title" placeholder="Welcome, prayer, sermon title">
         <textarea id="word-body" placeholder="Text for the slide"></textarea>
@@ -1614,6 +1627,12 @@ function bind() {
     active().items.push({ id: uid(), type: "scripture", title, body });
     save(); render();
   };
+  if (byId("bible-book")) {
+    fillBibleBookSelect();
+    byId("bible-book").onchange = () => onBibleBookChange();
+  }
+  if (byId("bible-chapter")) byId("bible-chapter").onchange = () => onBibleChapterChange();
+  if (byId("add-bible")) byId("add-bible").onclick = () => addBiblePassage();
   if (byId("add-word")) byId("add-word").onclick = () => {
     active().items.push({ id: uid(), type: "word", title: byId("word-title").value || "Words", body: byId("word-body").value });
     save(); render();
@@ -1718,6 +1737,96 @@ function bind() {
   if (byId("export-all")) byId("export-all").onclick = () => { download("church-x-backup.json", JSON.stringify(state, null, 2)); markBackedUp(); };
   if (byId("import-all")) byId("import-all").onchange = restoreBackupFile;
   if (byId("undo-restore")) byId("undo-restore").onclick = restoreUndo;
+}
+
+
+function setBibleStatus(msg) {
+  const el = document.getElementById("bible-status");
+  if (el) el.textContent = msg || "";
+}
+
+function fillBibleBookSelect() {
+  const sel = document.getElementById("bible-book");
+  if (!sel || typeof WwmBible === "undefined") return;
+  WwmBible.loadIndex().then((idx) => {
+    const prev = sel.value;
+    const ot = (idx.books || []).filter((b) => b.testament === "OT");
+    const nt = (idx.books || []).filter((b) => b.testament === "NT");
+    const optGroup = (label, books) =>
+      `<optgroup label="${escapeAttr(label)}">` +
+      books.map((b) => `<option value="${escapeAttr(b.id)}">${escapeText(b.name)}</option>`).join("") +
+      `</optgroup>`;
+    sel.innerHTML = optGroup("Old Testament", ot) + optGroup("New Testament", nt);
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    else sel.value = "john";
+    onBibleBookChange();
+  }).catch((err) => {
+    sel.innerHTML = `<option value="">Bible unavailable</option>`;
+    setBibleStatus(err && err.message ? err.message : "Could not load Bible index.");
+  });
+}
+
+function onBibleBookChange() {
+  const sel = document.getElementById("bible-book");
+  const chInput = document.getElementById("bible-chapter");
+  if (!sel || !chInput || !sel.value || typeof WwmBible === "undefined") return;
+  setBibleStatus("Loading " + sel.options[sel.selectedIndex].text + "…");
+  WwmBible.loadBook(sel.value).then((pack) => {
+    chInput.max = pack.meta.chapters;
+    if (Number(chInput.value) > pack.meta.chapters) chInput.value = 1;
+    setBibleStatus(pack.meta.name + " · " + pack.meta.chapters + " chapters (WEB, offline)");
+    onBibleChapterChange();
+  }).catch((err) => setBibleStatus(err && err.message ? err.message : "Could not load that book."));
+}
+
+function onBibleChapterChange() {
+  const sel = document.getElementById("bible-book");
+  const chInput = document.getElementById("bible-chapter");
+  const fromInput = document.getElementById("bible-from");
+  const toInput = document.getElementById("bible-to");
+  if (!sel || !sel.value || typeof WwmBible === "undefined") return;
+  WwmBible.loadBook(sel.value).then((pack) => {
+    const ch = Math.max(1, Number(chInput && chInput.value) || 1);
+    const n = WwmBible.verseCount(pack.chapters, ch);
+    if (fromInput) {
+      fromInput.max = n;
+      if (Number(fromInput.value) > n) fromInput.value = 1;
+    }
+    if (toInput) {
+      toInput.max = n;
+      if (!toInput.value || Number(toInput.value) > n) toInput.value = n;
+      if (Number(toInput.value) < Number(fromInput && fromInput.value || 1)) toInput.value = fromInput.value;
+    }
+  }).catch(() => {});
+}
+
+function addBiblePassage() {
+  if (typeof WwmBible === "undefined") {
+    fileNote = "Bible module did not load.";
+    render();
+    return;
+  }
+  const bookId = (document.getElementById("bible-book") || {}).value;
+  const chapter = Number((document.getElementById("bible-chapter") || {}).value || 1);
+  let fromV = Number((document.getElementById("bible-from") || {}).value || 1);
+  let toV = Number((document.getElementById("bible-to") || {}).value || fromV);
+  if (!bookId) return;
+  if (toV < fromV) { const t = fromV; fromV = toV; toV = t; }
+  setBibleStatus("Adding…");
+  WwmBible.loadBook(bookId).then((pack) => {
+    const maxV = WwmBible.verseCount(pack.chapters, chapter);
+    fromV = Math.max(1, Math.min(fromV, maxV));
+    toV = Math.max(fromV, Math.min(toV, maxV));
+    const title = WwmBible.formatRef(pack.meta.name, chapter, fromV, toV) + " (WEB)";
+    const body = WwmBible.passageBody(pack.chapters, chapter, fromV, toV, 2);
+    active().items.push({ id: uid(), type: "scripture", title, body });
+    save();
+    fileNote = "Added " + title + " from the offline World English Bible.";
+    setView("plan");
+  }).catch((err) => {
+    fileNote = err && err.message ? err.message : "Could not add that passage.";
+    render();
+  });
 }
 
 function scriptureParts(text) {
