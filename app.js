@@ -478,6 +478,7 @@ if (!state.activeId) state.activeId = state.services[0].id;
 const screenParam = new URLSearchParams(location.search).get("screen");
 const isHouse = screenParam === "house";
 const isStage = screenParam === "stage";
+const isRemote = screenParam === "remote";
 const LIVE = "churchx.live";
 let view = location.hash === "#welcome" ? "welcome" : "plan";
 let slideIndex = 0;
@@ -492,6 +493,9 @@ let stageMessage = "";
 let countdownEnd = null; // epoch ms, or null
 let stageTheme = "dark"; // dark | light
 let stageClockTimer = null;
+let remoteSessionCode = "";
+let remoteHostBusy = false;
+let remoteHostError = "";
 let liveChannel = null;
 let fileNote = "";
 try { liveChannel = new BroadcastChannel("wwm-sunday"); } catch (err) { liveChannel = null; }
@@ -1390,6 +1394,12 @@ function helpView() {
         <button class="ghost" id="open-wizard">Run the setup guide again</button>
       </section>
       <section class="card">
+        <h3>Phone remote and clicker</h3>
+        <p>Optional phone remote uses Supabase Realtime broadcast (no database tables). It is <b>off</b> until Church X sets <code>remoteEnabled</code> and the project URL / anon key in <code>config.js</code>. When off, the app never loads Supabase and makes no calls to it.</p>
+        <p>When on: during Present, press <b>Start phone remote</b> on the booth. Scan the QR or open the link on a phone on the same internet; a new random room code is made each session.</p>
+        <p><b>No internet?</b> Use a USB or Bluetooth presentation clicker. Arrow keys, Space, <b>Page Down</b> (next), and <b>Page Up</b> (previous) work on the laptop during Present / Rehearse — same as the on-screen buttons. B blanks the screen.</p>
+      </section>
+      <section class="card">
         <h3>Before anyone is charged</h3>
         <p>Do not charge until a church that is not you has presented a real Sunday. Then the price is $9 a month or $79 a year. Billing is not connected.</p>
         <p>The first Present sends a note to churchofx4u@gmail.com. Open the confirmation mail from FormSubmit and click it once, or later notices will not arrive.</p>
@@ -1466,6 +1476,7 @@ function boothView() {
           </div>
           <p class="lede" style="font-size:13px;margin-top:8px">${countdownEnd && countdownEnd > Date.now() ? ("Timer ends at " + formatClock(new Date(countdownEnd)) + ".") : "No timer running."} Theme on the stage window: ${stageTheme === "light" ? "light" : "dark"}.</p>
         </section>
+        ${phoneRemoteBoothHtml()}
       </section>
       <section class="card">
         <h3>Run sheet</h3>
@@ -1526,10 +1537,12 @@ function bind() {
   if (byId("import-sunday")) byId("import-sunday").onchange = importSunday;
   if (byId("go-next")) byId("go-next").onclick = () => step(1);
   if (byId("go-back")) byId("go-back").onclick = () => step(-1);
-  if (byId("go-black")) byId("go-black").onclick = () => { black = !black; titleCard = false; publishLive(); render(); };
-  if (byId("go-title")) byId("go-title").onclick = () => { titleCard = !titleCard; black = false; publishLive(); render(); };
+  if (byId("go-black")) byId("go-black").onclick = () => { black = !black; titleCard = false; publishLive(); render(); publishRemoteStatus(); };
+  if (byId("go-title")) byId("go-title").onclick = () => { titleCard = !titleCard; black = false; publishLive(); render(); publishRemoteStatus(); };
   if (byId("open-house")) byId("open-house").onclick = () => { publishLive(); houseWindow = window.open("./index.html?screen=house", "wwm-house"); render(); };
   if (byId("open-stage-display")) byId("open-stage-display").onclick = () => { openStageDisplay(); render(); };
+  if (byId("remote-start")) byId("remote-start").onclick = () => startPhoneRemoteHost();
+  if (byId("remote-stop")) byId("remote-stop").onclick = () => stopPhoneRemoteHost();
   if (byId("stage-message-send")) byId("stage-message-send").onclick = setStageMessageFromForm;
   if (byId("stage-message-clear")) byId("stage-message-clear").onclick = clearStageMessage;
   if (byId("stage-countdown-start")) byId("stage-countdown-start").onclick = () => {
@@ -1800,12 +1813,13 @@ function step(dir) {
   publishLive();
   if (document.querySelector("#stage").classList.contains("on")) paintSlide();
   if (view === "booth") render();
+  publishRemoteStatus();
 }
 
 function noteShown() {
   const slides = slidesFor(active());
   const slide = slides[slideIndex];
-  if (!countingUsage || isHouse || isStage) return;
+  if (!countingUsage || isHouse || isStage || isRemote) return;
   if (slide && slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
     logged.add(slide.item.id);
     ensureUsagePeriod();
@@ -2183,20 +2197,201 @@ function escapeAttr(value) {
   return escapeText(value).replaceAll('"', "\u0026quot;");
 }
 
+
+function phoneRemoteConfigured() {
+  return typeof WwmRemote !== "undefined" && WwmRemote.configured && WwmRemote.configured();
+}
+
+function remoteJoinUrl(code) {
+  let page = (state.publicUrl || "").trim();
+  if (page) {
+    page = page.replace(/\/?$/, "/") + "index.html";
+  } else {
+    page = location.href.split("?")[0].split("#")[0];
+    if (!/index\.html$/i.test(page)) {
+      const root = page.endsWith("/") ? page : page.replace(/\/[^/]*$/, "/");
+      page = root + "index.html";
+    }
+  }
+  return page + "?screen=remote&room=" + encodeURIComponent(code);
+}
+
+function phoneRemoteBoothHtml() {
+  if (!phoneRemoteConfigured()) {
+    return `
+      <section class="card booth-remote-controls" style="margin-top:14px">
+        <h3>Phone remote</h3>
+        <p class="lede">Off. When Church X enables it in <code>config.js</code> (Supabase URL + anon key), you can pair a phone here. Until then nothing loads Supabase. A USB/Bluetooth clicker still works (arrows / Page Up / Page Down).</p>
+      </section>`;
+  }
+  if (remoteSessionCode) {
+    const url = remoteJoinUrl(remoteSessionCode);
+    const qr = qrDataUrl(url);
+    return `
+      <section class="card booth-remote-controls" style="margin-top:14px">
+        <h3>Phone remote</h3>
+        <p class="lede">Phone joins this room. New code each time you start.</p>
+        <div class="remote-code-big">${escapeText(remoteSessionCode)}</div>
+        ${qr ? `<img class="remote-qr" alt="QR code for phone remote" src="${qr}">` : ""}
+        <p class="lede" style="font-size:13px;word-break:break-all"><code style="user-select:all">${escapeText(url)}</code></p>
+        <button class="ghost" id="remote-stop">Stop remote</button>
+        ${remoteHostError ? `<p class="lede">${escapeText(remoteHostError)}</p>` : ""}
+      </section>`;
+  }
+  return `
+    <section class="card booth-remote-controls" style="margin-top:14px">
+      <h3>Phone remote</h3>
+      <p class="lede">Pair a phone over Supabase Realtime (broadcast only). Or use a USB/Bluetooth clicker with no internet.</p>
+      <button class="solid" id="remote-start"${remoteHostBusy ? " disabled" : ""}>${remoteHostBusy ? "Starting…" : "Start phone remote"}</button>
+      ${remoteHostError ? `<p class="lede">${escapeText(remoteHostError)}</p>` : ""}
+    </section>`;
+}
+
+function applyRemoteCommand(data) {
+  if (isHouse || isStage || isRemote) return;
+  if (!data || !data.cmd) return;
+  const slides = slidesFor(active());
+  const cmd = String(data.cmd);
+  if (cmd === "next") {
+    slideIndex = Math.min(slides.length - 1, slideIndex + 1);
+    black = false;
+    titleCard = false;
+  } else if (cmd === "prev") {
+    slideIndex = Math.max(0, slideIndex - 1);
+    black = false;
+    titleCard = false;
+  } else if (cmd === "black") {
+    black = !black;
+  } else if (cmd === "goto") {
+    const n = Number(data.index);
+    if (!Number.isFinite(n)) return;
+    slideIndex = Math.max(0, Math.min(slides.length - 1, Math.floor(n) - 1));
+    black = false;
+    titleCard = false;
+  } else return;
+  noteShown();
+  publishLive();
+  if (document.querySelector("#stage") && document.querySelector("#stage").classList.contains("on")) paintSlide();
+  if (view === "booth") render();
+  publishRemoteStatus();
+}
+
+function publishRemoteStatus() {
+  if (typeof WwmRemote === "undefined" || !remoteSessionCode) return;
+  const slides = slidesFor(active());
+  WwmRemote.sendStatus({
+    slideIndex: slideIndex,
+    total: slides.length,
+    black: !!black,
+    title: (titleCard ? churchName() : ((slides[slideIndex] || {}).title || "")),
+    room: remoteSessionCode
+  });
+}
+
+function startPhoneRemoteHost() {
+  if (!phoneRemoteConfigured()) {
+    remoteHostError = "Remote is not configured.";
+    render();
+    return;
+  }
+  remoteHostBusy = true;
+  remoteHostError = "";
+  render();
+  WwmRemote.startHost({ onCommand: applyRemoteCommand }).then((code) => {
+    remoteSessionCode = code;
+    remoteHostBusy = false;
+    remoteHostError = "";
+    publishRemoteStatus();
+    render();
+  }).catch((err) => {
+    remoteHostBusy = false;
+    remoteSessionCode = "";
+    remoteHostError = err && err.message ? err.message : "Could not start remote.";
+    render();
+  });
+}
+
+function stopPhoneRemoteHost() {
+  if (typeof WwmRemote !== "undefined") WwmRemote.leave();
+  remoteSessionCode = "";
+  remoteHostBusy = false;
+  remoteHostError = "";
+  render();
+}
+
+function paintRemotePhone() {
+  const root = document.getElementById("remote-root");
+  if (root) root.hidden = false;
+  document.body.classList.add("remote-mode");
+  document.title = "Phone remote · Worship With Me";
+  const params = new URLSearchParams(location.search);
+  const preset = (params.get("room") || "").toUpperCase();
+  const codeInput = document.getElementById("remote-code");
+  if (codeInput && preset) codeInput.value = preset;
+  const status = document.getElementById("remote-status");
+  const lede = document.getElementById("remote-lede");
+  const pad = document.getElementById("remote-pad");
+  if (!phoneRemoteConfigured()) {
+    if (lede) lede.textContent = "Phone remote is off on this site.";
+    if (status) status.textContent = "Ask Church X to set remoteEnabled and the Supabase URL/anon key in config.js. No Supabase script is loaded while it is off.";
+    return;
+  }
+  if (lede) lede.textContent = "Enter the room code shown on the laptop (or open the QR link).";
+  const join = document.getElementById("remote-join");
+  if (join) join.onclick = () => {
+    const code = (document.getElementById("remote-code") || {}).value || "";
+    if (status) status.textContent = "Connecting…";
+    WwmRemote.joinPhone(code, {
+      onStatus: (info) => {
+        const pos = document.getElementById("remote-pos");
+        if (pos && info) {
+          pos.textContent = info.black
+            ? "Screen blank"
+            : ("Slide " + ((info.slideIndex || 0) + 1) + " / " + (info.total || "?") + (info.title ? (" · " + info.title) : ""));
+        }
+      }
+    }).then(() => {
+      if (status) status.textContent = "Connected to " + (WwmRemote.roomCode || code).toUpperCase();
+      if (pad) pad.classList.remove("hidden");
+    }).catch((err) => {
+      if (status) status.textContent = err && err.message ? err.message : "Could not join.";
+    });
+  };
+  const bindSend = (id, cmd, extra) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.onclick = () => {
+      WwmRemote.sendCommand(cmd, extra).catch((err) => {
+        if (status) status.textContent = err && err.message ? err.message : "Send failed.";
+      });
+    };
+  };
+  bindSend("remote-next", "next");
+  bindSend("remote-prev", "prev");
+  bindSend("remote-black", "black");
+  const goBtn = document.getElementById("remote-goto-btn");
+  if (goBtn) goBtn.onclick = () => {
+    const n = Number((document.getElementById("remote-goto") || {}).value || 1);
+    WwmRemote.sendCommand("goto", { index: n }).catch(() => {});
+  };
+  if (preset) join && join.click();
+}
+
 document.addEventListener("keydown", (e) => {
-  if (isHouse || isStage) return;
+  if (isHouse || isStage || isRemote) return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   const stage = document.querySelector("#stage");
-  const stageOn = stage.classList.contains("on");
+  const stageOn = stage && stage.classList.contains("on");
   if (!stageOn && view !== "booth") return;
   const slides = slidesFor(active());
-  if (e.key === "ArrowRight" || e.key === " ") {
+  if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
     e.preventDefault();
     slideIndex = Math.min(slides.length - 1, slideIndex + 1);
     black = false;
     titleCard = false;
-  } else if (e.key === "ArrowLeft") {
+  } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+    e.preventDefault();
     slideIndex = Math.max(0, slideIndex - 1);
     black = false;
     titleCard = false;
@@ -2214,6 +2409,7 @@ document.addEventListener("keydown", (e) => {
   if (view === "booth") publishLive();
   if (stageOn) paintSlide();
   if (view === "booth") render();
+  publishRemoteStatus();
 });
 
 document.querySelector("#exit-stage").onclick = () => {
@@ -2222,9 +2418,11 @@ document.querySelector("#exit-stage").onclick = () => {
   if (badge) badge.classList.add("hidden");
 };
 
-if (!isHouse && !isStage && typeof wwmGoatLoad === "function") wwmGoatLoad();
+if (!isHouse && !isStage && !isRemote && typeof wwmGoatLoad === "function") wwmGoatLoad();
 
-if (isStage) {
+if (isRemote) {
+  paintRemotePhone();
+} else if (isStage) {
   document.body.classList.add("stage-mode");
   document.title = "Stage display · Worship With Me";
   const sd = document.getElementById("stage-display");

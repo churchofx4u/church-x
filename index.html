@@ -63,6 +63,29 @@
       <p id="sd-next-body"></p>
     </section>
   </div>
+  <div id="remote-root" class="remote-root" hidden>
+    <div class="remote-card">
+      <h1>Phone remote</h1>
+      <p class="lede" id="remote-lede">Join the room code from the laptop.</p>
+      <label>Room code</label>
+      <input id="remote-code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123">
+      <button class="solid" id="remote-join" style="margin-top:12px">Join</button>
+      <p id="remote-status" class="lede"></p>
+      <div id="remote-pad" class="remote-pad hidden">
+        <p id="remote-pos" class="lede"></p>
+        <div class="remote-grid">
+          <button class="ghost" id="remote-prev" type="button">Previous</button>
+          <button class="solid" id="remote-next" type="button">Next</button>
+          <button class="ghost" id="remote-black" type="button">Blank</button>
+        </div>
+        <label>Go to slide #</label>
+        <div class="row">
+          <input id="remote-goto" type="number" min="1" step="1" value="1" style="max-width:100px">
+          <button class="ghost" id="remote-goto-btn" type="button">Go</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="stage" class="stage">
     <div id="screen" class="slide"></div>
     <div id="rehearse-badge" class="rehearse-badge hidden" role="status">Rehearsal — not counted for CCLI</div>
@@ -75,6 +98,7 @@
   <script src="./vendor/qrcode.js"></script>
   <script src="./config.js"></script>
   <script src="./song-import.js"></script>
+  <script src="./remote.js"></script>
   <script src="./app.js"></script>
   <script src="./onboarding.js"></script>
 </body>
