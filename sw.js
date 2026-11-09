@@ -1,6 +1,7 @@
-const CACHE = "church-x-v21";
+const CACHE = "church-x-v22";
 const FILES = [
   "./index.html",
+  "./funeral/index.html",
   "./licensing.html",
   "./for-churches.html",
   "./landing.js",
@@ -50,14 +51,18 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Same-origin only. Third-party scripts (GoatCounter at gc.zgo.at) go
+// straight to the network and are never cached, so offline still works
+// when that host is unreachable.
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
   event.respondWith(
     fetch(event.request).then((response) => {
       const copy = response.clone();
       caches.open(CACHE).then((cache) => cache.put(event.request, copy));
       return response;
     }).catch(() => {
-      const url = new URL(event.request.url);
       if (url.pathname.endsWith("index.html") || url.search.includes("screen=house")) return caches.match("./index.html");
       return caches.match(event.request);
     })
