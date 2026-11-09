@@ -437,7 +437,11 @@ function slidesFor(service) {
     if (item.type === "hymn") {
       slides.push({ kind: "title", title: item.title, body: item.author || "", item });
       (item.verses || []).forEach((verse, i) => {
-        slides.push({ kind: "verse", title: item.title, body: verse, kicker: "Verse " + (i + 1), item });
+        const body = typeof verse === "string" ? verse : (verse.body || "");
+        const kicker = typeof verse === "string"
+          ? ("Verse " + (i + 1))
+          : (verse.label || ("Verse " + (i + 1)));
+        slides.push({ kind: "verse", title: item.title, body: body, kicker: kicker, item });
       });
       if (!item.pd) slides.push({ kind: "credit", title: item.title, body: creditBody(item), kicker: "Song", item });
     } else if (item.type === "scripture") {
@@ -628,27 +632,203 @@ async function loadMedia(id) {
   });
 }
 
+
+function buildSongFromPasteForm() {
+  const title = (document.getElementById("lic-title") || {}).value || "";
+  const text = (document.getElementById("lic-lyrics") || {}).value || "";
+  const parsed = (window.SongImport && SongImport.parsePaste)
+    ? SongImport.parsePaste(title, text)
+    : { title: title, verses: text.split(/\n\s*\n/).map((v) => v.trim()).filter(Boolean).map((body) => ({ label: "", body: body })) };
+  parsed.author = (document.getElementById("lic-author") || {}).value || "";
+  parsed.ccli = (document.getElementById("lic-ccli") || {}).value || "";
+  parsed.copyright = (document.getElementById("lic-copy") || {}).value || "";
+  parsed.pd = false;
+  return parsed;
+}
+
+function saveSongFromPasteForm() {
+  const song = buildSongFromPasteForm();
+  const note = document.getElementById("song-import-note");
+  const finish = (mode) => {
+    const result = saveImportedSong(song, mode || "add");
+    if (!result.ok && result.reason === "empty") {
+      if (note) note.textContent = "Add a title and some lyrics before saving.";
+      return;
+    }
+    if (!result.ok && result.reason === "dup") {
+      choiceDialog({
+        title: "Song already saved",
+        body: [
+          "“" + result.dup.title + "”" + (result.dup.ccli ? " (CCLI " + result.dup.ccli + ")" : "") + " is already in Songs.",
+          "Replace it with this paste, or keep the one you have?"
+        ],
+        choices: [
+          { id: "replace", label: "Replace", solid: true },
+          { id: "skip", label: "Keep existing" },
+          { id: "cancel", label: "Cancel" }
+        ]
+      }, (pick) => {
+        if (pick === "replace") finish("replace");
+        else if (pick === "skip") { if (note) note.textContent = "Kept the existing song."; }
+      });
+      return;
+    }
+    save();
+    render();
+  };
+  finish("add");
+}
+
+async function importSongFiles(event) {
+  const input = event.target;
+  const files = Array.from((input && input.files) || []);
+  if (!files.length) return;
+  const note = () => document.getElementById("song-import-note");
+  const queue = [];
+  for (const file of files) {
+    try {
+      const text = await file.text();
+      const song = SongImport.parseSongFile(text, file.name);
+      queue.push({ file: file.name, song: song });
+    } catch (err) {
+      queue.push({ file: file.name, error: true });
+    }
+  }
+  input.value = "";
+  let added = 0, replaced = 0, skipped = 0, failed = 0;
+
+  const next = (i) => {
+    if (i >= queue.length) {
+      save();
+      render();
+      const el = note();
+      if (el) el.textContent = "Import finished: " + added + " added, " + replaced + " replaced, " + skipped + " skipped, " + failed + " failed.";
+      return;
+    }
+    const item = queue[i];
+    if (item.error || !item.song || !item.song.verses || !item.song.verses.length) {
+      failed += 1;
+      return next(i + 1);
+    }
+    const result = saveImportedSong(item.song, "add");
+    if (result.ok && !result.skipped && !result.replaced) { added += 1; return next(i + 1); }
+    if (!result.ok && result.reason === "dup") {
+      choiceDialog({
+        title: "Duplicate: " + item.file,
+        body: [
+          "“" + result.dup.title + "”" + (result.dup.ccli ? " (CCLI " + result.dup.ccli + ")" : "") + " is already saved.",
+          "Replace the saved song, skip this file, or cancel the rest?"
+        ],
+        choices: [
+          { id: "replace", label: "Replace", solid: true },
+          { id: "skip", label: "Skip" },
+          { id: "cancel", label: "Cancel rest" }
+        ]
+      }, (pick) => {
+        if (pick === "replace") {
+          saveImportedSong(item.song, "replace");
+          replaced += 1;
+          next(i + 1);
+        } else if (pick === "skip") {
+          skipped += 1;
+          next(i + 1);
+        } else {
+          skipped += (queue.length - i);
+          next(queue.length);
+        }
+      });
+      return;
+    }
+    failed += 1;
+    next(i + 1);
+  };
+  next(0);
+}
+
+function songPreviewHtml(song) {
+  if (!song || !(song.verses || []).length) return `<p class="lede">Nothing to preview yet.</p>`;
+  const meta = [
+    song.author ? "Author: " + song.author : "",
+    song.ccli ? "CCLI " + song.ccli : "",
+    song.copyright || ""
+  ].filter(Boolean).join(" · ");
+  const blocks = song.verses.map((v, i) => {
+    const label = typeof v === "string" ? ("Verse " + (i + 1)) : (v.label || ("Verse " + (i + 1)));
+    const body = typeof v === "string" ? v : (v.body || "");
+    return `<div class="song-preview-block"><small>${escapeText(label)}</small><pre>${escapeText(body)}</pre></div>`;
+  }).join("");
+  return `<p class="lede"><strong>${escapeText(song.title || "Untitled")}</strong>${meta ? "<br>" + escapeText(meta) : ""}</p>${blocks}`;
+}
+
+function versesForStorage(verses) {
+  return (verses || []).map((v) => {
+    if (typeof v === "string") return v;
+    if (v.label) return { label: v.label, body: v.body || "" };
+    return v.body || "";
+  }).filter((v) => typeof v === "string" ? v.trim() : (v.body || "").trim());
+}
+
+function findSongDuplicate(song) {
+  return (window.SongImport && SongImport.detectDuplicate)
+    ? SongImport.detectDuplicate(song, state.songs || [])
+    : null;
+}
+
+function saveImportedSong(song, mode) {
+  const dup = findSongDuplicate(song);
+  const payload = {
+    id: uid(),
+    title: song.title,
+    author: song.author || "",
+    copyright: song.copyright || "",
+    ccli: song.ccli || "",
+    pd: !!song.pd,
+    verses: versesForStorage(song.verses)
+  };
+  if (!payload.title || !payload.verses.length) return { ok: false, reason: "empty" };
+  if (dup && mode === "skip") return { ok: true, skipped: true, dup: dup };
+  if (dup && mode === "replace") {
+    payload.id = dup.id;
+    const idx = state.songs.findIndex((s) => s.id === dup.id);
+    if (idx >= 0) state.songs[idx] = payload;
+    else state.songs.push(payload);
+    return { ok: true, replaced: true, song: payload };
+  }
+  if (dup) return { ok: false, reason: "dup", dup: dup, song: payload };
+  state.songs.push(payload);
+  return { ok: true, song: payload };
+}
+
 function songsView() {
   const custom = state.songs.map((song) => `
     <div class="song">
-      <div><strong>${escapeText(song.title)}</strong><div><small>${escapeText(song.author || "Author")}${song.copyright ? " · " + escapeText(song.copyright) : ""} · CCLI ${escapeText(song.ccli || "missing")}</small></div></div>
+      <div><strong>${escapeText(song.title)}</strong><div><small>${escapeText(song.author || "Author")}${song.copyright ? " · " + escapeText(song.copyright) : ""} · CCLI ${escapeText(song.ccli || "missing")} · ${(song.verses || []).length} slides</small></div></div>
       <button class="ghost" data-use-song="${song.id}">Add to Sunday</button>
     </div>`).join("");
   return `
-    <div class="top"><div><h1>Songs</h1><p class="lede">Public-domain hymns are built in. Licensed lyrics stay on this church's machine. Paste them from SongSelect or your OneLicense catalog only if this church holds that license. Streaming the lyrics may need a separate streaming license.</p></div></div>
+    <div class="top"><div><h1>Songs</h1><p class="lede">Public-domain hymns are built in. Licensed lyrics stay on this church's machine. Paste or import from SongSelect / ChordPro only if this church holds that license. Nothing is fetched from SongSelect — only files you provide.</p></div>
+      <label class="ghost file-btn">Import song files<input id="import-songs" type="file" accept=".txt,.cho,.chordpro,.pro,text/plain" multiple></label>
+    </div>
+    <p id="song-import-note" class="lede"></p>
     <div class="grid-2">
       <section class="card">
-        <h3>Add a licensed song</h3>
-        <label>Title</label><input id="lic-title">
+        <h3>Paste lyrics</h3>
+        <label>Title</label><input id="lic-title" placeholder="Song title">
         <label>Author</label><input id="lic-author">
         <label>License number</label><input id="lic-ccli" placeholder="CCLI or OneLicense number">
         <label>Copyright line</label><input id="lic-copy" placeholder="© 2011 Publisher name">
-        <label>Lyrics, one verse per block, blank line between verses</label>
-        <textarea id="lic-lyrics"></textarea>
-        <button class="solid" id="save-licensed" style="margin-top:10px">Save song</button>
+        <label>Lyrics</label>
+        <textarea id="lic-lyrics" class="lyrics-paste" placeholder="Paste lyrics here. Use a blank line between slides. Labels like Verse 1, Chorus, Bridge, or [V1] become slide titles."></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="ghost" id="preview-licensed">Preview slides</button>
+          <button class="solid" id="save-licensed">Save song</button>
+        </div>
+        <p class="lede" style="font-size:13px;margin-top:10px">Tip: SongSelect .txt and ChordPro (.cho / .chordpro / .pro) can be imported with the button above. Several files at once is fine.</p>
       </section>
       <section class="card">
-        <h3>Saved licensed songs</h3>
+        <h3>Preview</h3>
+        <div id="song-preview" class="song-preview"><p class="lede">Preview appears here before you save.</p></div>
+        <h3 style="margin-top:22px">Saved licensed songs</h3>
         <div class="songs">${custom || "<p>None yet.</p>"}</div>
       </section>
     </div>`;
@@ -1043,12 +1223,20 @@ function bind() {
     byId("help-thanks").textContent = "Your email app should open with this note. Send it there.";
     byId("help-thanks").classList.remove("hidden");
   };
-  if (byId("save-licensed")) byId("save-licensed").onclick = () => {
-    const verses = byId("lic-lyrics").value.split(/\n\s*\n/).map((v) => v.trim()).filter(Boolean);
-    if (!byId("lic-title").value || !verses.length) return;
-    state.songs.push({ id: uid(), title: byId("lic-title").value, author: byId("lic-author").value, copyright: byId("lic-copy").value.trim(), ccli: byId("lic-ccli").value, pd: false, verses });
-    save(); render();
+  if (byId("preview-licensed")) byId("preview-licensed").onclick = () => {
+    const song = buildSongFromPasteForm();
+    const box = byId("song-preview");
+    if (box) box.innerHTML = songPreviewHtml(song);
   };
+  if (byId("save-licensed")) byId("save-licensed").onclick = () => saveSongFromPasteForm();
+  if (byId("import-songs")) byId("import-songs").onchange = importSongFiles;
+  if (byId("lic-lyrics")) {
+    byId("lic-lyrics").onblur = () => {
+      if (!byId("lic-lyrics").value.trim()) return;
+      const box = byId("song-preview");
+      if (box) box.innerHTML = songPreviewHtml(buildSongFromPasteForm());
+    };
+  }
   document.querySelectorAll("[data-use-song]").forEach((btn) => btn.onclick = () => {
     const song = state.songs.find((s) => s.id === btn.dataset.useSong);
     active().items.push({ ...song, id: uid(), type: "hymn" });
