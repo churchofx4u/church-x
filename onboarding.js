@@ -190,4 +190,4 @@ function paintWizard() {
   if (q("wiz-rehearse")) q("wiz-rehearse").onclick = () => { endWizard("done"); openStage(true); };
 }
 
-if (!isHouse && isFirstRun) openWizard(true);
+if (!isHouse && !isStage && isFirstRun) openWizard(true);
