@@ -1,4 +1,4 @@
-const CACHE = "church-x-v22";
+const CACHE = "church-x-v23";
 const FILES = [
   "./index.html",
   "./funeral/index.html",

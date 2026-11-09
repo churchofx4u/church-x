@@ -253,9 +253,133 @@ let fileNote = "";
 try { liveChannel = new BroadcastChannel("wwm-sunday"); } catch (err) { liveChannel = null; }
 
 function save() {
-  localStorage.setItem(KEY, JSON.stringify(state));
-  localStorage.setItem(EDITED_AT, String(Date.now()));
-  setTitle();
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    localStorage.setItem(EDITED_AT, String(Date.now()));
+    setTitle();
+    return true;
+  } catch (err) {
+    if (isQuotaError(err)) {
+      showToast("This browser is out of space", "Export a backup, free some browser storage, then try again.", null);
+    }
+    return false;
+  }
+}
+
+const UNDO_KEY = "churchx.undo";
+
+function isQuotaError(err) {
+  return !!(err && (err.name === "QuotaExceededError" || err.code === 22 || err.code === 1014));
+}
+
+function hasUndo() {
+  try { return !!localStorage.getItem(UNDO_KEY); } catch (err) { return false; }
+}
+
+// Keep only the latest undo copy of the whole app state.
+function stashUndo() {
+  try {
+    localStorage.setItem(UNDO_KEY, JSON.stringify({ at: Date.now(), state }));
+    return true;
+  } catch (err) {
+    if (isQuotaError(err)) {
+      try { localStorage.removeItem(UNDO_KEY); localStorage.setItem(UNDO_KEY, JSON.stringify({ at: Date.now(), state })); return true; } catch (err2) { return false; }
+    }
+    return false;
+  }
+}
+
+function clearUndo() {
+  try { localStorage.removeItem(UNDO_KEY); } catch (err) {}
+}
+
+function readUndo() {
+  try {
+    const raw = localStorage.getItem(UNDO_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.state || !Array.isArray(parsed.state.services)) return null;
+    return parsed;
+  } catch (err) { return null; }
+}
+
+function showToast(title, body, undoLabel) {
+  const old = document.getElementById("import-toast");
+  if (old) old.remove();
+  const box = document.createElement("aside");
+  box.id = "import-toast";
+  box.className = "import-toast";
+  box.setAttribute("role", "status");
+  box.innerHTML = `<div><strong>${escapeText(title)}</strong><p>${escapeText(body || "")}</p></div>
+    <div class="row">${undoLabel ? `<button class="solid" id="toast-undo">${escapeText(undoLabel)}</button>` : ""}
+    <button class="ghost" id="toast-dismiss">Dismiss</button></div>`;
+  document.body.appendChild(box);
+  const dismiss = () => { const el = document.getElementById("import-toast"); if (el) el.remove(); };
+  box.querySelector("#toast-dismiss").onclick = dismiss;
+  if (undoLabel) box.querySelector("#toast-undo").onclick = () => { dismiss(); restoreUndo(); };
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(dismiss, 16000);
+}
+
+function restoreUndo() {
+  const packed = readUndo();
+  if (!packed) {
+    showToast("Nothing to undo", "There is no previous copy saved in this browser.", null);
+    return;
+  }
+  const current = state;
+  state = packed.state;
+  if (!state.activeId && state.services[0]) state.activeId = state.services[0].id;
+  try {
+    localStorage.setItem(UNDO_KEY, JSON.stringify({ at: Date.now(), state: current }));
+  } catch (err) {
+    clearUndo();
+  }
+  if (!save()) {
+    state = current;
+    return;
+  }
+  fileNote = "Restored your previous data.";
+  render();
+  showToast("Previous data restored", "You can undo once more to flip back.", "Undo again");
+}
+
+function cloneServiceFresh(service) {
+  const copy = JSON.parse(JSON.stringify(service));
+  copy.id = uid();
+  (copy.items || []).forEach((item) => { item.id = uid(); });
+  return copy;
+}
+
+function applyImportedData(data, mode) {
+  const hadUndo = stashUndo();
+  if (mode === "add") {
+    const added = (data.services || []).map(cloneServiceFresh);
+    if (!added.length) throw new Error("bad");
+    state.services = added.concat(state.services);
+    state.activeId = added[0].id;
+    if (Array.isArray(data.songs) && data.songs.length) {
+      const have = new Set((state.songs || []).map((s) => (s.title || "").toLowerCase()));
+      data.songs.forEach((song) => {
+        if (!have.has((song.title || "").toLowerCase())) {
+          const s = JSON.parse(JSON.stringify(song));
+          s.id = uid();
+          state.songs = state.songs || [];
+          state.songs.push(s);
+        }
+      });
+    }
+  } else {
+    state = data;
+    if (!state.activeId && state.services[0]) state.activeId = state.services[0].id;
+  }
+  localStorage.setItem(FIRST_RUN, "import");
+  if (!save()) {
+    const prev = readUndo();
+    if (prev) state = prev.state;
+    throw new Error("quota");
+  }
+  return hadUndo;
 }
 
 // "Back up your Sunday" reminder: show when there are edits since the last
@@ -658,6 +782,7 @@ function setupView() {
       <button class="ghost" id="export-all">Export backup</button>
       <label>Restore backup</label>
       <input id="import-all" type="file" accept="application/json">
+      ${hasUndo() ? `<p class="lede" style="margin-top:14px">A previous copy is saved in this browser after your last import or restore.</p><button class="ghost" id="undo-restore">Restore previous data</button>` : ""}
     </section>`;
 }
 
@@ -733,6 +858,11 @@ function helpView() {
         <p>If the building wifi drops after the app has been opened once, it still opens from the copy saved on this computer. Files you imported stay on this computer too.</p>
       </section>
     </div>
+    ${hasUndo() ? `<section class="card" style="max-width:640px;margin-top:18px">
+      <h3>Undo last import</h3>
+      <p>Bring back the data that was here before your last import or restore. Only the most recent copy is kept.</p>
+      <button class="solid" id="undo-restore">Restore previous data</button>
+    </section>` : ""}
     <section class="card" style="max-width:640px;margin-top:18px">
       <h3>Ask Church X</h3>
       <p><a href="mailto:churchofx4u@gmail.com?subject=${encodeURIComponent("Help with Worship With Me " + VERSION)}">Email churchofx4u@gmail.com</a></p>
@@ -957,12 +1087,8 @@ function bind() {
     document.querySelectorAll("[data-theme]").forEach((other) => other.classList.toggle("on", other === btn));
   });
   if (byId("export-all")) byId("export-all").onclick = () => { download("church-x-backup.json", JSON.stringify(state, null, 2)); markBackedUp(); };
-  if (byId("import-all")) byId("import-all").onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    state = JSON.parse(await file.text());
-    save(); render();
-  };
+  if (byId("import-all")) byId("import-all").onchange = restoreBackupFile;
+  if (byId("undo-restore")) byId("undo-restore").onclick = restoreUndo;
 }
 
 function scriptureParts(text) {
@@ -1087,22 +1213,98 @@ function exportSunday() {
 }
 
 async function importSunday(event) {
-  const file = event.target.files && event.target.files[0];
+  const input = event.target;
+  const file = input.files && input.files[0];
   if (!file) return;
+  let data;
   try {
-    const data = JSON.parse(await file.text());
-    if (!data || !Array.isArray(data.services)) throw new Error("bad");
-    state = data;
-    if (!state.activeId && state.services[0]) state.activeId = state.services[0].id;
-    localStorage.setItem(FIRST_RUN, "import");
-    fileNote = "Imported " + file.name + ".";
-    save();
-    render();
+    data = JSON.parse(await file.text());
+    if (!data || !Array.isArray(data.services) || !data.services.length) throw new Error("bad");
   } catch (err) {
     fileNote = "That file is not a Worship With Me Sunday.";
     const note = document.getElementById("file-note");
     if (note) note.textContent = fileNote;
+    input.value = "";
+    return;
   }
+  const count = data.services.length;
+  const label = count === 1
+    ? (data.services[0].name || "Sunday") + (data.services[0].date ? " (" + data.services[0].date + ")" : "")
+    : count + " Sundays";
+  choiceDialog({
+    title: "Import " + file.name + "?",
+    body: [
+      "This file has " + label + ".",
+      "Add as new Sunday keeps what you already have and adds the Sunday(s) from the file.",
+      "Replace everything overwrites your church name, Sundays, songs, visitor cards, and settings. A one-step undo copy is saved first when there is room."
+    ],
+    choices: [
+      { id: "add", label: "Add as new Sunday", solid: true },
+      { id: "replace", label: "Replace everything" },
+      { id: "cancel", label: "Cancel" }
+    ]
+  }, (pick) => {
+    input.value = "";
+    if (!pick || pick === "cancel") return;
+    try {
+      const hadUndo = applyImportedData(data, pick === "add" ? "add" : "replace");
+      fileNote = pick === "add"
+        ? "Added " + label + " from " + file.name + "."
+        : "Replaced everything with " + file.name + ".";
+      render();
+      showToast(
+        pick === "add" ? "Sunday added" : "Import complete",
+        hadUndo ? fileNote + " You can undo this." : fileNote + " Could not save an undo copy (browser storage is full). Export a backup if you need one.",
+        hadUndo ? "Undo import" : null
+      );
+    } catch (err) {
+      fileNote = err && err.message === "quota"
+        ? "Import failed: this browser is out of space."
+        : "That file is not a Worship With Me Sunday.";
+      render();
+    }
+  });
+}
+
+async function restoreBackupFile(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  if (!file) return;
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+    if (!data || !Array.isArray(data.services)) throw new Error("bad");
+  } catch (err) {
+    showToast("Not a Worship With Me backup", "Pick an Export backup file from this app.", null);
+    input.value = "";
+    return;
+  }
+  choiceDialog({
+    title: "Restore this backup?",
+    body: [
+      "This replaces your church name, Sundays, songs, visitor cards, and settings with the file “" + file.name + "”.",
+      "A one-step undo copy of what you have now is saved first when there is room."
+    ],
+    choices: [
+      { id: "replace", label: "Replace everything", solid: true },
+      { id: "cancel", label: "Cancel" }
+    ]
+  }, (pick) => {
+    input.value = "";
+    if (pick !== "replace") return;
+    try {
+      const hadUndo = applyImportedData(data, "replace");
+      fileNote = "Restored backup " + file.name + ".";
+      render();
+      showToast(
+        "Backup restored",
+        hadUndo ? "Your previous data can be brought back once." : "Could not save an undo copy (browser storage is full).",
+        hadUndo ? "Restore previous data" : null
+      );
+    } catch (err) {
+      showToast("Restore failed", "This browser is out of space. Export what you can, free storage, then try again.", null);
+    }
+  });
 }
 
 function openStage(notes) {

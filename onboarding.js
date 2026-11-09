@@ -29,6 +29,40 @@ function askDialog(opts, done) {
   box.querySelector("#ask-yes").focus();
 }
 
+// Multi-choice confirm, same look as askDialog. choices: [{ id, label, solid? }]
+// Calls done(choiceId). Cancel / Escape calls done(null).
+function choiceDialog(opts, done) {
+  closeOverlay("ask-dialog");
+  const box = document.createElement("div");
+  box.id = "ask-dialog";
+  box.className = "overlay";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
+  box.setAttribute("aria-labelledby", "ask-title");
+  const buttons = (opts.choices || []).map((c, i) =>
+    `<button class="${c.solid ? "solid" : "ghost"}" data-choice="${escapeAttr(c.id)}" ${i === 0 ? 'id="ask-first"' : ""}>${escapeText(c.label)}</button>`
+  ).join("");
+  box.innerHTML = `
+    <section class="card overlay-card">
+      <h2 id="ask-title">${escapeText(opts.title)}</h2>
+      ${(opts.body || []).map((p) => `<p class="lede">${escapeText(p)}</p>`).join("")}
+      <div class="row overlay-actions" style="flex-wrap:wrap">${buttons}</div>
+    </section>`;
+  document.body.appendChild(box);
+  const finish = (value) => {
+    document.removeEventListener("keydown", onKey);
+    closeOverlay("ask-dialog");
+    done(value);
+  };
+  const onKey = (e) => { if (e.key === "Escape") finish(null); };
+  document.addEventListener("keydown", onKey);
+  box.querySelectorAll("[data-choice]").forEach((btn) => {
+    btn.onclick = () => finish(btn.dataset.choice);
+  });
+  const first = box.querySelector("#ask-first");
+  if (first) first.focus();
+}
+
 let wizardStep = 0;
 let wizardFirst = false;
 const WIZARD_STEPS = 4;
