@@ -475,7 +475,9 @@ function churchName() {
   return (state.churchName || "").trim() || "Your Church";
 }
 if (!state.activeId) state.activeId = state.services[0].id;
-const isHouse = new URLSearchParams(location.search).get("screen") === "house";
+const screenParam = new URLSearchParams(location.search).get("screen");
+const isHouse = screenParam === "house";
+const isStage = screenParam === "stage";
 const LIVE = "churchx.live";
 let view = location.hash === "#welcome" ? "welcome" : "plan";
 let slideIndex = 0;
@@ -485,6 +487,11 @@ let showNotes = false;
 let countingUsage = false; // true only during a real Present run; Rehearse stays false
 let logged = new Set();
 let houseWindow = null;
+let stageWindow = null;
+let stageMessage = "";
+let countdownEnd = null; // epoch ms, or null
+let stageTheme = "dark"; // dark | light
+let stageClockTimer = null;
 let liveChannel = null;
 let fileNote = "";
 try { liveChannel = new BroadcastChannel("wwm-sunday"); } catch (err) { liveChannel = null; }
@@ -760,6 +767,7 @@ function planView() {
       </div>
       <div class="row">
         <button class="solid" id="present">Present</button>
+        <button class="ghost" id="open-stage-display">Stage display</button>
         <button class="ghost" id="stage" title="Practice on this screen. Does not add to the CCLI log.">Rehearse</button>
         <button class="ghost" id="export-sunday">Export Sunday</button>
         <label class="ghost file-btn">Import Sunday<input id="import-sunday" type="file" accept="application/json"></label>
@@ -1423,6 +1431,7 @@ function boothView() {
       </div>
       <div class="row">
         <button class="ghost" id="open-house">Open projector</button>
+        <button class="ghost" id="open-stage-display">Stage display</button>
         <button class="ghost" id="leave-booth">Back to Sunday</button>
       </div>
     </div>
@@ -1440,6 +1449,23 @@ function boothView() {
           <button class="ghost" id="go-title">${titleCard ? "Show slide" : "Title"}</button>
         </div>
         <p class="lede">${index + 1} / ${slides.length}. Next: ${escapeText(next ? next.title : "End")}</p>
+        <section class="card booth-stage-controls" style="margin-top:14px">
+          <h3>Stage display</h3>
+          <p class="lede">For the band or pastor. Shows this slide, the next one, a clock, and your message — no network.</p>
+          <label>Message line</label>
+          <input id="stage-message" value="${escapeAttr(stageMessage)}" placeholder="Wrap up, Repeat chorus…">
+          <div class="row">
+            <button class="solid" id="stage-message-send">Send message</button>
+            <button class="ghost" id="stage-message-clear">Clear</button>
+          </div>
+          <label>Countdown (minutes)</label>
+          <div class="row">
+            <input id="stage-countdown-mins" type="number" min="1" max="180" step="1" value="5" style="max-width:100px">
+            <button class="ghost" id="stage-countdown-start">Start</button>
+            <button class="ghost" id="stage-countdown-clear">Clear timer</button>
+          </div>
+          <p class="lede" style="font-size:13px;margin-top:8px">${countdownEnd && countdownEnd > Date.now() ? ("Timer ends at " + formatClock(new Date(countdownEnd)) + ".") : "No timer running."} Theme on the stage window: ${stageTheme === "light" ? "light" : "dark"}.</p>
+        </section>
       </section>
       <section class="card">
         <h3>Run sheet</h3>
@@ -1503,6 +1529,14 @@ function bind() {
   if (byId("go-black")) byId("go-black").onclick = () => { black = !black; titleCard = false; publishLive(); render(); };
   if (byId("go-title")) byId("go-title").onclick = () => { titleCard = !titleCard; black = false; publishLive(); render(); };
   if (byId("open-house")) byId("open-house").onclick = () => { publishLive(); houseWindow = window.open("./index.html?screen=house", "wwm-house"); render(); };
+  if (byId("open-stage-display")) byId("open-stage-display").onclick = () => { openStageDisplay(); render(); };
+  if (byId("stage-message-send")) byId("stage-message-send").onclick = setStageMessageFromForm;
+  if (byId("stage-message-clear")) byId("stage-message-clear").onclick = clearStageMessage;
+  if (byId("stage-countdown-start")) byId("stage-countdown-start").onclick = () => {
+    const mins = byId("stage-countdown-mins") ? byId("stage-countdown-mins").value : 5;
+    startCountdownMinutes(mins);
+  };
+  if (byId("stage-countdown-clear")) byId("stage-countdown-clear").onclick = clearCountdown;
   if (byId("leave-booth")) byId("leave-booth").onclick = () => setView("plan");
   if (byId("service-pick")) byId("service-pick").onchange = (e) => { state.activeId = e.target.value; save(); render(); };
   if (byId("new-service")) byId("new-service").onclick = () => {
@@ -1771,7 +1805,7 @@ function step(dir) {
 function noteShown() {
   const slides = slidesFor(active());
   const slide = slides[slideIndex];
-  if (!countingUsage || isHouse) return;
+  if (!countingUsage || isHouse || isStage) return;
   if (slide && slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
     logged.add(slide.item.id);
     ensureUsagePeriod();
@@ -1781,7 +1815,15 @@ function noteShown() {
 }
 
 function publishLive() {
-  localStorage.setItem(LIVE, JSON.stringify({ slideIndex, black, titleCard, serviceId: state.activeId }));
+  localStorage.setItem(LIVE, JSON.stringify({
+    slideIndex,
+    black,
+    titleCard,
+    serviceId: state.activeId,
+    stageMessage: stageMessage || "",
+    countdownEnd: countdownEnd || null,
+    stageTheme: stageTheme === "light" ? "light" : "dark"
+  }));
   if (liveChannel) liveChannel.postMessage({ type: "live" });
 }
 
@@ -1795,9 +1837,135 @@ function applyLive() {
     slideIndex = live.slideIndex || 0;
     black = !!live.black;
     titleCard = !!live.titleCard;
+    if (typeof live.stageMessage === "string") stageMessage = live.stageMessage;
+    countdownEnd = live.countdownEnd || null;
+    if (live.stageTheme === "light" || live.stageTheme === "dark") stageTheme = live.stageTheme;
   }
   showNotes = false;
-  paintSlide();
+  if (isStage) paintStageDisplay();
+  else paintSlide();
+}
+
+function formatClock(date) {
+  try {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch (err) {
+    return date.getHours() + ":" + String(date.getMinutes()).padStart(2, "0");
+  }
+}
+
+function formatCountdown(msLeft) {
+  if (msLeft <= 0) return "0:00";
+  const total = Math.ceil(msLeft / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+function slidePlain(slide) {
+  if (!slide) return { kicker: "", title: "End", body: "" };
+  return {
+    kicker: slide.kicker || "",
+    title: slide.title || "",
+    body: slide.body || ""
+  };
+}
+
+function paintStageDisplay() {
+  const root = document.getElementById("stage-display");
+  if (!root) return;
+  root.hidden = false;
+  root.classList.toggle("light", stageTheme === "light");
+  const themeBtn = document.getElementById("sd-theme-toggle");
+  if (themeBtn) themeBtn.textContent = stageTheme === "light" ? "Dark mode" : "Light mode";
+
+  const slides = slidesFor(active());
+  const index = Math.max(0, Math.min(slideIndex, Math.max(0, slides.length - 1)));
+  const current = titleCard
+    ? { kicker: "Title", title: churchName(), body: active().name }
+    : (black ? { kicker: "", title: "", body: "" } : slidePlain(slides[index]));
+  const next = black || titleCard ? null : slidePlain(slides[index + 1]);
+
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text || ""; };
+  set("sd-cur-kicker", current.kicker);
+  set("sd-cur-title", current.title);
+  set("sd-cur-body", current.body);
+  set("sd-next-kicker", next ? next.kicker : "");
+  set("sd-next-title", next ? next.title : "End");
+  set("sd-next-body", next ? next.body : "");
+
+  const msg = document.getElementById("sd-message");
+  if (msg) {
+    const text = (stageMessage || "").trim();
+    msg.hidden = !text;
+    msg.textContent = text;
+  }
+  tickStageClock();
+}
+
+function tickStageClock() {
+  const clock = document.getElementById("sd-clock");
+  if (clock) clock.textContent = formatClock(new Date());
+  const cd = document.getElementById("sd-countdown");
+  if (!cd) return;
+  if (!countdownEnd) {
+    cd.hidden = true;
+    cd.textContent = "";
+    return;
+  }
+  const left = countdownEnd - Date.now();
+  cd.hidden = false;
+  cd.textContent = left <= 0 ? "0:00" : formatCountdown(left);
+}
+
+function startStageClock() {
+  if (stageClockTimer) clearInterval(stageClockTimer);
+  tickStageClock();
+  stageClockTimer = setInterval(tickStageClock, 250);
+}
+
+function openStageDisplay() {
+  publishLive();
+  stageWindow = window.open("./index.html?screen=stage", "wwm-stage");
+}
+
+function setStageMessageFromForm() {
+  const input = document.getElementById("stage-message");
+  stageMessage = input ? input.value : "";
+  publishLive();
+  if (isStage) paintStageDisplay();
+  else render();
+}
+
+function clearStageMessage() {
+  stageMessage = "";
+  const input = document.getElementById("stage-message");
+  if (input) input.value = "";
+  publishLive();
+  if (isStage) paintStageDisplay();
+  else render();
+}
+
+function startCountdownMinutes(mins) {
+  const n = Number(mins);
+  if (!n || n < 0) { countdownEnd = null; }
+  else { countdownEnd = Date.now() + Math.round(n * 60 * 1000); }
+  publishLive();
+  if (isStage) paintStageDisplay();
+  else render();
+}
+
+function clearCountdown() {
+  countdownEnd = null;
+  publishLive();
+  if (isStage) paintStageDisplay();
+  else render();
+}
+
+function toggleStageTheme() {
+  stageTheme = stageTheme === "light" ? "dark" : "light";
+  publishLive();
+  if (isStage) paintStageDisplay();
 }
 
 function exportSunday() {
@@ -2016,7 +2184,7 @@ function escapeAttr(value) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (isHouse) return;
+  if (isHouse || isStage) return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   const stage = document.querySelector("#stage");
@@ -2054,9 +2222,22 @@ document.querySelector("#exit-stage").onclick = () => {
   if (badge) badge.classList.add("hidden");
 };
 
-if (!isHouse && typeof wwmGoatLoad === "function") wwmGoatLoad();
+if (!isHouse && !isStage && typeof wwmGoatLoad === "function") wwmGoatLoad();
 
-if (isHouse) {
+if (isStage) {
+  document.body.classList.add("stage-mode");
+  document.title = "Stage display · Worship With Me";
+  const sd = document.getElementById("stage-display");
+  if (sd) sd.hidden = false;
+  const themeBtn = document.getElementById("sd-theme-toggle");
+  if (themeBtn) themeBtn.onclick = toggleStageTheme;
+  window.addEventListener("storage", (event) => {
+    if (event.key === KEY || event.key === LIVE) applyLive();
+  });
+  if (liveChannel) liveChannel.onmessage = () => applyLive();
+  applyLive();
+  startStageClock();
+} else if (isHouse) {
   document.body.classList.add("house");
   document.querySelector("#stage").classList.add("on");
   window.addEventListener("storage", (event) => {

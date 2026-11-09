@@ -42,6 +42,27 @@
     </aside>
     <main class="main" id="view"></main>
   </div>
+  <div id="stage-display" class="stage-display" hidden>
+    <header class="sd-bar">
+      <div class="sd-times">
+        <div id="sd-clock" class="sd-clock">--:--</div>
+        <div id="sd-countdown" class="sd-countdown" hidden></div>
+      </div>
+      <button type="button" class="ghost" id="sd-theme-toggle">Light mode</button>
+    </header>
+    <div id="sd-message" class="sd-message" hidden></div>
+    <section id="sd-current" class="sd-current">
+      <div class="sd-kicker" id="sd-cur-kicker"></div>
+      <h1 id="sd-cur-title"></h1>
+      <p id="sd-cur-body"></p>
+    </section>
+    <section id="sd-next" class="sd-next">
+      <div class="sd-next-label">Next</div>
+      <div class="sd-kicker" id="sd-next-kicker"></div>
+      <h2 id="sd-next-title"></h2>
+      <p id="sd-next-body"></p>
+    </section>
+  </div>
   <div id="stage" class="stage">
     <div id="screen" class="slide"></div>
     <div id="rehearse-badge" class="rehearse-badge hidden" role="status">Rehearsal — not counted for CCLI</div>
