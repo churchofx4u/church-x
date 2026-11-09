@@ -10,7 +10,7 @@ test.describe("Present and Rehearse CCLI logging", () => {
     await dismissConsentIfAny(page, "no");
 
     await expect(page.locator("#go-next")).toBeVisible();
-    await expect(page.locator("h1")).toContainText("Test Sunday");
+    await expect(page.getByRole('heading', { name: 'Test Sunday', exact: true })).toBeVisible();
 
     let popup = null;
     try {
@@ -41,7 +41,7 @@ test.describe("Present and Rehearse CCLI logging", () => {
     expect(state.usage.filter((u) => u.title === "Amazing Grace")).toHaveLength(1);
 
     await page.locator("nav button[data-view='report']").click();
-    await expect(page.locator("h1")).toContainText("CCLI log");
+    await expect(page.getByRole('heading', { name: 'CCLI log', exact: true })).toBeVisible();
     await expect(page.locator("table")).toContainText("In Christ Alone");
     await expect(page.locator("table")).toContainText("3350395");
     await expect(page.locator("table")).toContainText("Amazing Grace");
@@ -77,7 +77,7 @@ test.describe("Present and Rehearse CCLI logging", () => {
       setView("report");
     });
 
-    await expect(page.locator("h1")).toContainText("CCLI log");
+    await expect(page.getByRole('heading', { name: 'CCLI log', exact: true })).toBeVisible();
     await expect(page.locator("table")).toContainText("Present a service");
   });
 });

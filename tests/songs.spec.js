@@ -24,7 +24,7 @@ test.describe("Song library", () => {
     );
 
     await page.locator("nav button[data-view='songs']").click();
-    await expect(page.locator("h1")).toContainText("Songs");
+    await expect(page.getByRole('heading', { name: 'Songs', exact: true })).toBeVisible();
 
     await page.locator("#lic-title").fill("How Great Is Our God");
     await page.locator("#lic-author").fill("Chris Tomlin");
@@ -43,7 +43,7 @@ test.describe("Song library", () => {
     expect(state.songs.find((s) => s.title === "How Great Is Our God").verses.length).toBe(2);
 
     await page.locator("[data-use-song]").first().click();
-    await expect(page.locator("h1")).toContainText("Sunday");
+    await expect(page.getByRole('heading', { name: 'Sunday', exact: true })).toBeVisible();
     await expect(page.locator(".item")).toContainText("How Great Is Our God");
 
     state = await readState(page);
