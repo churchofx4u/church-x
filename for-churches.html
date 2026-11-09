@@ -206,6 +206,7 @@ https://churchofx4u.github.io/church-x/for-churches.html</div>
   <script>
     var supportLink = document.querySelector("#support-link");
     if (supportLink && window.wwmSupportHref) supportLink.href = window.wwmSupportHref();
+    if (typeof wwmGoatLoad === "function") wwmGoatLoad();
   </script>
 </body>
 </html>

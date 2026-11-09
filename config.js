@@ -18,7 +18,14 @@
 //   When ready, create Stripe Payment Links in the Stripe dashboard
 //   ($9/month and $79/year), paste them below, then set billingEnabled: true.
 //   Nothing billing-related renders while billingEnabled is false.
+// VISITOR COUNTS (GoatCounter) - OFF while the code is empty.
+// Church X: at https://www.goatcounter.com create a site, pick a site code
+// (e.g. churchx → https://churchx.goatcounter.com), then paste that code into
+// goatcounterCode below. Empty means the count.js script is never loaded and
+// nothing is counted. No API key. Optional: in GoatCounter settings, tick
+// "Ignore visits from …" / "Don't track me" so your own visits are skipped.
 window.WWM_CONFIG = {
+  goatcounterCode: "", // PLACEHOLDER: paste site code (e.g. "churchx") to turn counting on
   donateEnabled: false,
   donateStripeUrl: "https://buy.stripe.com/6oU28r9TXczncYq4AYdby03", // verified: one-time, customer chooses amount
   billingEnabled: false,
@@ -42,4 +49,27 @@ window.wwmBillingLinks = function () {
   const c = window.WWM_CONFIG || {};
   if (!c.billingEnabled || !c.stripe) return [];
   return [c.stripe.monthly, c.stripe.yearly].filter((p) => p && /^https:\/\/buy\.stripe\.com\//.test(p.url));
+};
+
+// Load GoatCounter only when a site code is set. Safe to call more than once.
+// The projector window (?screen=house) must NOT call this.
+window.wwmGoatLoad = function () {
+  const code = ((window.WWM_CONFIG || {}).goatcounterCode || "").trim();
+  if (!code || !/^[a-z0-9-]+$/i.test(code)) return;
+  if (document.querySelector("script[data-goatcounter]")) return;
+  window.goatcounter = window.goatcounter || {};
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = "https://gc.zgo.at/count.js";
+  s.dataset.goatcounter = "https://" + code + ".goatcounter.com/count";
+  document.head.appendChild(s);
+};
+
+// Custom event. No-op if the script is blocked, offline, or counting is off.
+window.wwmCountEvent = function (path, title) {
+  try {
+    if (window.goatcounter && typeof window.goatcounter.count === "function") {
+      window.goatcounter.count({ path: path, title: title || path, event: true });
+    }
+  } catch (err) {}
 };

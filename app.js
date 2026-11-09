@@ -1009,6 +1009,7 @@ function startPresent() {
   logged = new Set();
   publishLive();
   houseWindow = window.open("./index.html?screen=house", "wwm-house");
+  if (typeof wwmCountEvent === "function") wwmCountEvent("present-started", "Present started");
   setView("booth");
   const today = new Date().toISOString().slice(0, 10);
   if (state.usageConsent === undefined) {
@@ -1243,6 +1244,8 @@ document.addEventListener("keydown", (e) => {
 });
 
 document.querySelector("#exit-stage").onclick = () => document.querySelector("#stage").classList.remove("on");
+
+if (!isHouse && typeof wwmGoatLoad === "function") wwmGoatLoad();
 
 if (isHouse) {
   document.body.classList.add("house");

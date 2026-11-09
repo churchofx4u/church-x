@@ -166,7 +166,9 @@
     </table>
   </article>
 </main>
+<script src="../config.js"></script>
 <script>
+  if (typeof wwmGoatLoad === "function") wwmGoatLoad();
   const input = document.querySelector("#photo");
   const portrait = document.querySelector("#portrait");
   const hint = document.querySelector("#portrait-hint");
