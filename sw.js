@@ -20,6 +20,8 @@ const FILES = [
   "./song-import.js",
   "./remote.js",
   "./vendor/supabase.js",
+  "./bible.js",
+  "./bible/web/index.json",
   "./app.js",
   "./onboarding.js",
   "./vendor/qrcode.js",

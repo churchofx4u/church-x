@@ -479,6 +479,7 @@ const screenParam = new URLSearchParams(location.search).get("screen");
 const isHouse = screenParam === "house";
 const isStage = screenParam === "stage";
 const isRemote = screenParam === "remote";
+const isLower = screenParam === "lower" || screenParam === "lowerthirds";
 const LIVE = "churchx.live";
 let view = location.hash === "#welcome" ? "welcome" : "plan";
 let slideIndex = 0;
@@ -496,6 +497,8 @@ let stageClockTimer = null;
 let remoteSessionCode = "";
 let remoteHostBusy = false;
 let remoteHostError = "";
+let lowerWindow = null;
+let lowerBg = "transparent"; // transparent | green
 let preActive = false;
 let preRuntime = null; // live pre-service snapshot (also synced via LIVE)
 let preTickTimer = null;
@@ -779,6 +782,7 @@ function planView() {
       <div class="row">
         <button class="solid" id="present">Present</button>
         <button class="ghost" id="open-stage-display">Stage display</button>
+        <button class="ghost" id="open-lower-thirds" title="OBS Browser Source lower-thirds">Lower-thirds</button>
         <button class="ghost" id="rehearse" title="Practice on this screen. Does not add to the CCLI log.">Rehearse</button>
         <button class="ghost" id="export-sunday">Export Sunday</button>
         <label class="ghost file-btn">Import Sunday<input id="import-sunday" type="file" accept="application/json"></label>
@@ -830,6 +834,19 @@ function planView() {
           ${SCRIPTURES.map((s) => `<option value="${escapeAttr(s.ref)}">${s.ref}</option>`).join("")}
         </select>
         <button class="ghost" id="add-scripture" style="margin-top:10px">Add scripture</button>
+        <div class="bible-picker" style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(28,23,18,0.12)">
+          <h3 style="margin:0 0 8px">Bible (offline)</h3>
+          <p class="lede" style="font-size:13px">World English Bible — public domain. Loads on this computer only; no API keys and no licensed text (not NIV/ESV).</p>
+          <label>Book</label>
+          <select id="bible-book"><option value="">Loading books…</option></select>
+          <div class="row" style="margin-top:8px;flex-wrap:wrap">
+            <label style="margin:0">Chapter <input id="bible-chapter" type="number" min="1" value="1" style="width:72px"></label>
+            <label style="margin:0">From <input id="bible-from" type="number" min="1" value="1" style="width:72px"></label>
+            <label style="margin:0">To <input id="bible-to" type="number" min="1" value="1" style="width:72px"></label>
+          </div>
+          <button class="solid" id="add-bible" style="margin-top:10px">Add Bible slides</button>
+          <p id="bible-status" class="lede" style="font-size:13px;margin-top:8px"></p>
+        </div>
         <label>Words slide</label>
         <input id="word-title" placeholder="Welcome, prayer, sermon title">
         <textarea id="word-body" placeholder="Text for the slide"></textarea>
@@ -1408,6 +1425,13 @@ function helpView() {
         <p><b>No internet?</b> Use a USB or Bluetooth presentation clicker. Arrow keys, Space, <b>Page Down</b> (next), and <b>Page Up</b> (previous) work on the laptop during Present / Rehearse — same as the on-screen buttons. B blanks the screen.</p>
       </section>
       <section class="card">
+        <h3>Livestream lower-thirds (OBS)</h3>
+        <p>1. During Present, open <b>Lower-thirds</b> from Sunday or the booth, or use this page: <code style="user-select:all">${escapeText(lowerThirdsUrl())}</code></p>
+        <p>2. In OBS, add a <b>Browser Source</b>. Paste that URL. Width 1920, height 1080 (or your canvas size). Leave “Shutdown source when not visible” off if you want it ready.</p>
+        <p>3. Transparent mode is the default — OBS shows only the lower-third bar over your camera/program. If transparency fails on your OS, switch to <b>green screen</b> in the lower-thirds window (or from the booth) and add an OBS <b>Chroma Key</b> filter on that source.</p>
+        <p>4. It stays in sync with Present on this computer (same browser profile) over the existing live channel — offline, no trackers.</p>
+      </section>
+      <section class="card">
         <h3>Before anyone is charged</h3>
         <p>Do not charge until a church that is not you has presented a real Sunday. Then the price is $9 a month or $79 a year. Billing is not connected.</p>
         <p>The first Present sends a note to churchofx4u@gmail.com. Open the confirmation mail from FormSubmit and click it once, or later notices will not arrive.</p>
@@ -1484,6 +1508,15 @@ function boothView() {
           </div>
           <p class="lede" style="font-size:13px;margin-top:8px">${countdownEnd && countdownEnd > Date.now() ? ("Timer ends at " + formatClock(new Date(countdownEnd)) + ".") : "No timer running."} Theme on the stage window: ${stageTheme === "light" ? "light" : "dark"}.</p>
         </section>
+        <section class="card booth-lower-controls" style="margin-top:14px">
+          <h3>Livestream lower-thirds</h3>
+          <p class="lede">For OBS Browser Source. Shows the current lyric, verse, or title as a lower-third. Transparent by default; green screen if your setup needs chroma key.</p>
+          <div class="row">
+            <button class="solid" id="open-lower-thirds">Open lower-thirds</button>
+            <button class="ghost" id="lower-bg-toggle">${lowerBg === "green" ? "Use transparent" : "Use green screen"}</button>
+          </div>
+          <p class="lede" style="font-size:13px;margin-top:8px">URL: <code style="user-select:all">${escapeText(lowerThirdsUrl())}</code> · Background: ${lowerBg === "green" ? "green screen" : "transparent"}</p>
+        </section>
         ${preserviceControlsHtml()}
         ${phoneRemoteBoothHtml()}
       </section>
@@ -1552,6 +1585,8 @@ function bind() {
   if (byId("open-stage-display")) byId("open-stage-display").onclick = () => { openStageDisplay(); render(); };
   if (byId("remote-start")) byId("remote-start").onclick = () => startPhoneRemoteHost();
   if (byId("remote-stop")) byId("remote-stop").onclick = () => stopPhoneRemoteHost();
+  if (byId("open-lower-thirds")) byId("open-lower-thirds").onclick = () => { openLowerThirds(); render(); };
+  if (byId("lower-bg-toggle")) byId("lower-bg-toggle").onclick = () => { toggleLowerBg(); render(); };
   if (byId("pre-save")) byId("pre-save").onclick = () => { savePreserviceForm(); fileNote = "Pre-service settings saved with this Sunday."; render(); };
   if (byId("pre-start")) byId("pre-start").onclick = () => startPreservice();
   if (byId("pre-stop")) byId("pre-stop").onclick = () => stopPreserviceAndStart();
@@ -1641,6 +1676,12 @@ function bind() {
     active().items.push({ id: uid(), type: "scripture", title, body });
     save(); render();
   };
+  if (byId("bible-book")) {
+    fillBibleBookSelect();
+    byId("bible-book").onchange = () => onBibleBookChange();
+  }
+  if (byId("bible-chapter")) byId("bible-chapter").onchange = () => onBibleChapterChange();
+  if (byId("add-bible")) byId("add-bible").onclick = () => addBiblePassage();
   if (byId("add-word")) byId("add-word").onclick = () => {
     active().items.push({ id: uid(), type: "word", title: byId("word-title").value || "Words", body: byId("word-body").value });
     save(); render();
@@ -1747,6 +1788,96 @@ function bind() {
   if (byId("undo-restore")) byId("undo-restore").onclick = restoreUndo;
 }
 
+
+function setBibleStatus(msg) {
+  const el = document.getElementById("bible-status");
+  if (el) el.textContent = msg || "";
+}
+
+function fillBibleBookSelect() {
+  const sel = document.getElementById("bible-book");
+  if (!sel || typeof WwmBible === "undefined") return;
+  WwmBible.loadIndex().then((idx) => {
+    const prev = sel.value;
+    const ot = (idx.books || []).filter((b) => b.testament === "OT");
+    const nt = (idx.books || []).filter((b) => b.testament === "NT");
+    const optGroup = (label, books) =>
+      `<optgroup label="${escapeAttr(label)}">` +
+      books.map((b) => `<option value="${escapeAttr(b.id)}">${escapeText(b.name)}</option>`).join("") +
+      `</optgroup>`;
+    sel.innerHTML = optGroup("Old Testament", ot) + optGroup("New Testament", nt);
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    else sel.value = "john";
+    onBibleBookChange();
+  }).catch((err) => {
+    sel.innerHTML = `<option value="">Bible unavailable</option>`;
+    setBibleStatus(err && err.message ? err.message : "Could not load Bible index.");
+  });
+}
+
+function onBibleBookChange() {
+  const sel = document.getElementById("bible-book");
+  const chInput = document.getElementById("bible-chapter");
+  if (!sel || !chInput || !sel.value || typeof WwmBible === "undefined") return;
+  setBibleStatus("Loading " + sel.options[sel.selectedIndex].text + "…");
+  WwmBible.loadBook(sel.value).then((pack) => {
+    chInput.max = pack.meta.chapters;
+    if (Number(chInput.value) > pack.meta.chapters) chInput.value = 1;
+    setBibleStatus(pack.meta.name + " · " + pack.meta.chapters + " chapters (WEB, offline)");
+    onBibleChapterChange();
+  }).catch((err) => setBibleStatus(err && err.message ? err.message : "Could not load that book."));
+}
+
+function onBibleChapterChange() {
+  const sel = document.getElementById("bible-book");
+  const chInput = document.getElementById("bible-chapter");
+  const fromInput = document.getElementById("bible-from");
+  const toInput = document.getElementById("bible-to");
+  if (!sel || !sel.value || typeof WwmBible === "undefined") return;
+  WwmBible.loadBook(sel.value).then((pack) => {
+    const ch = Math.max(1, Number(chInput && chInput.value) || 1);
+    const n = WwmBible.verseCount(pack.chapters, ch);
+    if (fromInput) {
+      fromInput.max = n;
+      if (Number(fromInput.value) > n) fromInput.value = 1;
+    }
+    if (toInput) {
+      toInput.max = n;
+      if (!toInput.value || Number(toInput.value) > n) toInput.value = n;
+      if (Number(toInput.value) < Number(fromInput && fromInput.value || 1)) toInput.value = fromInput.value;
+    }
+  }).catch(() => {});
+}
+
+function addBiblePassage() {
+  if (typeof WwmBible === "undefined") {
+    fileNote = "Bible module did not load.";
+    render();
+    return;
+  }
+  const bookId = (document.getElementById("bible-book") || {}).value;
+  const chapter = Number((document.getElementById("bible-chapter") || {}).value || 1);
+  let fromV = Number((document.getElementById("bible-from") || {}).value || 1);
+  let toV = Number((document.getElementById("bible-to") || {}).value || fromV);
+  if (!bookId) return;
+  if (toV < fromV) { const t = fromV; fromV = toV; toV = t; }
+  setBibleStatus("Adding…");
+  WwmBible.loadBook(bookId).then((pack) => {
+    const maxV = WwmBible.verseCount(pack.chapters, chapter);
+    fromV = Math.max(1, Math.min(fromV, maxV));
+    toV = Math.max(fromV, Math.min(toV, maxV));
+    const title = WwmBible.formatRef(pack.meta.name, chapter, fromV, toV) + " (WEB)";
+    const body = WwmBible.passageBody(pack.chapters, chapter, fromV, toV, 2);
+    active().items.push({ id: uid(), type: "scripture", title, body });
+    save();
+    fileNote = "Added " + title + " from the offline World English Bible.";
+    setView("plan");
+  }).catch((err) => {
+    fileNote = err && err.message ? err.message : "Could not add that passage.";
+    render();
+  });
+}
+
 function scriptureParts(text) {
   const blocks = String(text || "").split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
   const source = blocks.length ? blocks : [String(text || "").trim()];
@@ -1833,7 +1964,7 @@ function step(dir) {
 function noteShown() {
   const slides = slidesFor(active());
   const slide = slides[slideIndex];
-  if (!countingUsage || isHouse || isStage || isRemote) return;
+  if (!countingUsage || isHouse || isStage || isRemote || isLower) return;
   if (slide && slide.item && slide.item.type === "hymn" && !logged.has(slide.item.id)) {
     logged.add(slide.item.id);
     ensureUsagePeriod();
@@ -2113,6 +2244,7 @@ function publishLive() {
     stageMessage: stageMessage || "",
     countdownEnd: countdownEnd || null,
     stageTheme: stageTheme === "light" ? "light" : "dark",
+    lowerBg: lowerBg === "green" ? "green" : "transparent",
     preservice: preActive && preRuntime ? {
       active: true,
       label: preRuntime.label,
@@ -2143,6 +2275,7 @@ function applyLive() {
     if (typeof live.stageMessage === "string") stageMessage = live.stageMessage;
     countdownEnd = live.countdownEnd || null;
     if (live.stageTheme === "light" || live.stageTheme === "dark") stageTheme = live.stageTheme;
+    if (live.lowerBg === "green" || live.lowerBg === "transparent") lowerBg = live.lowerBg;
     if (live.preservice && live.preservice.active) {
       preActive = true;
       preRuntime = live.preservice;
@@ -2154,7 +2287,8 @@ function applyLive() {
   }
   showNotes = false;
   if (isRemote) return;
-  if (isStage) paintStageDisplay();
+  if (isLower) paintLowerThirds();
+  else if (isStage) paintStageDisplay();
   else paintSlide();
 }
 
@@ -2247,6 +2381,82 @@ function startStageClock() {
   if (stageClockTimer) clearInterval(stageClockTimer);
   tickStageClock();
   stageClockTimer = setInterval(tickStageClock, 250);
+}
+
+
+function lowerThirdsUrl() {
+  const base = location.href.split("?")[0].split("#")[0];
+  const bg = lowerBg === "green" ? "&bg=green" : "";
+  return base + "?screen=lower" + bg;
+}
+
+function openLowerThirds() {
+  publishLive();
+  lowerWindow = window.open(lowerThirdsUrl(), "wwm-lower");
+}
+
+function toggleLowerBg() {
+  lowerBg = lowerBg === "green" ? "transparent" : "green";
+  publishLive();
+  if (isLower) paintLowerThirds();
+}
+
+function lowerThirdContent() {
+  const speaker = (state.roles && (state.roles.preacher || state.roles.slides) || "").trim();
+  if (black) return { hidden: true, kicker: "", title: "", body: "", speaker: "" };
+  if (titleCard) {
+    return {
+      hidden: false,
+      kicker: "Welcome",
+      title: churchName(),
+      body: active().name || "",
+      speaker: speaker
+    };
+  }
+  const slides = slidesFor(active());
+  if (!slides.length) return { hidden: true, kicker: "", title: "", body: "", speaker: "" };
+  const index = Math.max(0, Math.min(slideIndex, slides.length - 1));
+  const slide = slides[index] || {};
+  const kind = slide.kind || (slide.item && slide.item.type) || "";
+  let body = String(slide.body || "").trim();
+  // Prefer the lyric/verse lines; keep title as the song or passage name.
+  if (kind === "credit") {
+    return { hidden: false, kicker: "Song", title: slide.title || "", body: body, speaker: "" };
+  }
+  const kicker = slide.kicker || (kind === "verse" ? "Lyrics" : kind === "scripture" ? "Scripture" : "");
+  const showSpeaker = !!(speaker && (kind === "word" || kind === "title" || !body));
+  return {
+    hidden: !(slide.title || body),
+    kicker: kicker,
+    title: slide.title || "",
+    body: body,
+    speaker: showSpeaker ? speaker : (kind === "verse" || kind === "scripture" ? "" : speaker)
+  };
+}
+
+function paintLowerThirds() {
+  const root = document.getElementById("lower-thirds");
+  if (!root) return;
+  root.hidden = false;
+  document.documentElement.classList.add("lower-thirds-html");
+  document.body.classList.add("lower-thirds-mode");
+  document.body.classList.toggle("lt-green", lowerBg === "green");
+  document.documentElement.classList.toggle("lt-green", lowerBg === "green");
+  const content = lowerThirdContent();
+  const bar = document.getElementById("lt-bar");
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text || ""; };
+  set("lt-kicker", content.kicker);
+  set("lt-title", content.title);
+  set("lt-body", content.body);
+  const sp = document.getElementById("lt-speaker");
+  if (sp) {
+    const name = (content.speaker || "").trim();
+    sp.hidden = !name;
+    sp.textContent = name ? ("— " + name) : "";
+  }
+  if (bar) bar.hidden = !!content.hidden;
+  const toggle = document.getElementById("lt-bg-toggle");
+  if (toggle) toggle.textContent = lowerBg === "green" ? "Transparent" : "Green screen";
 }
 
 function openStageDisplay() {
@@ -2574,7 +2784,7 @@ function phoneRemoteBoothHtml() {
 }
 
 function applyRemoteCommand(data) {
-  if (isHouse || isStage || isRemote) return;
+  if (isHouse || isStage || isRemote || isLower) return;
   if (!data || !data.cmd) return;
   const slides = slidesFor(active());
   const cmd = String(data.cmd);
@@ -2704,7 +2914,7 @@ function paintRemotePhone() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (isHouse || isStage || isRemote) return;
+  if (isHouse || isStage || isRemote || isLower) return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   const stage = document.querySelector("#stage");
@@ -2744,10 +2954,22 @@ document.querySelector("#exit-stage").onclick = () => {
   if (badge) badge.classList.add("hidden");
 };
 
-if (!isHouse && !isStage && !isRemote && typeof wwmGoatLoad === "function") wwmGoatLoad();
+if (!isHouse && !isStage && !isRemote && !isLower && typeof wwmGoatLoad === "function") wwmGoatLoad();
 
 if (isRemote) {
   paintRemotePhone();
+} else if (isLower) {
+  document.title = "Lower-thirds · Worship With Me";
+  const bgParam = new URLSearchParams(location.search).get("bg");
+  if (bgParam === "green") lowerBg = "green";
+  if (bgParam === "transparent") lowerBg = "transparent";
+  const toggle = document.getElementById("lt-bg-toggle");
+  if (toggle) toggle.onclick = () => toggleLowerBg();
+  window.addEventListener("storage", (event) => {
+    if (event.key === KEY || event.key === LIVE) applyLive();
+  });
+  if (liveChannel) liveChannel.onmessage = () => applyLive();
+  applyLive();
 } else if (isStage) {
   document.body.classList.add("stage-mode");
   document.title = "Stage display · Worship With Me";
